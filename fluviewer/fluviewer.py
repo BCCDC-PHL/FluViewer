@@ -718,19 +718,28 @@ def make_mapping_refs(blast_results, db, out_name):
                 best_ref_seqs[header] += line.strip()
     ''' Create mapping ref for each segment. '''
     def make_map_ref(data_frame):
-        data_frame = data_frame.sort_values(by='sstart')
-        sseq = best_ref_seqs[data_frame['sseqid'].min()]
+        data_frame = data_frame.sort_values(by=['sstart', 'send'],
+                                            ascending=[True, False])
+        ref_seq = best_ref_seqs[data_frame['sseqid'].min()]
         last_position = 0
         seq = ''
         for index, row in data_frame.iterrows():
-            seq += sseq[last_position:row['sstart'] - 1]
-            for qbase, sbase in zip(row['qseq'].upper(), row['sseq'].upper()):
-                if qbase in 'ATGC':
-                    seq += qbase
-                else:
-                    seq += sbase
-            last_position = row['send']
-        seq += sseq[last_position:].lower()
+            if row['sstart'] > last_position:
+                seq += ref_seq[last_position:row['sstart'] - 1]
+            if row['send'] > last_position:
+                qseq = row['qseq'].upper()
+                sseq = row['sseq'].upper()
+                if row['sstart'] <= last_position:
+                    start = (last_position - row['sstart']) + 1
+                    qseq = qseq[start:]
+                    sseq = sseq[start:]
+                for qbase, sbase in zip(qseq, sseq):
+                    if qbase in 'ATGC':
+                        seq += qbase
+                    else:
+                        seq += sbase
+                last_position = row['send']
+        seq += ref_seq[last_position:].upper()
         seq = seq.replace('-', '')
         return seq
     cols = ['sseqid', 'sstart', 'send', 'qseq', 'sseq']
