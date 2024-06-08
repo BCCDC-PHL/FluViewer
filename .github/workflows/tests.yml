@@ -44,8 +44,6 @@ jobs:
       run: bash .github/scripts/install_fluviewer_bccdc-phl.sh
     - name: Run analysis with BCCDC-PHL/FluViewer
       run: bash .github/scripts/run_analysis_bccdc-phl.sh
-    - name: Create Output Checking Environment
-      run: bash .github/scripts/create_output_checking_environment.sh
     - name: Check Outputs
       run: bash .github/scripts/check_outputs.sh
     - name: Prepare Artifacts
