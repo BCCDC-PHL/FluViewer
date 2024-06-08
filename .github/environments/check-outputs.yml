@@ -1,0 +1,9 @@
+name: check-outputs
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3
+  - jsonschema=4.20.0
+  - pyyaml=6.0.1

@@ -1,0 +1,58 @@
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+name: Tests
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        python_version:
+          - "3.7"
+          - "3.8"
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"
+    name: Run tests
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - name: Create Artifacts Directory
+      run: mkdir artifacts
+    - name: Install Conda
+      run: bash .github/scripts/install_conda.sh
+    - name: Create ART Read-Simulation Environment
+      run: bash .github/scripts/create_art_environment.sh
+    - name: Download Assemblies
+      run: bash .github/scripts/download_assemblies.sh
+    - name: Simulate Reads
+      run: bash .github/scripts/simulate_reads.sh
+    - name: Download FluViewer db
+      run: bash .github/scripts/download_fluviewer_db.sh
+    - name: Install KevinKuchinski/FluViewer
+      run: bash .github/scripts/install_fluviewer_kkuchinski.sh
+    - name: Run analysis with KevinKuchinski/FluViewer
+      run: bash .github/scripts/run_analysis_kkuchinski.sh
+    - name: Install BCCDC-PHL/FluViewer
+      run: bash .github/scripts/install_fluviewer_bccdc-phl.sh
+    - name: Run analysis with BCCDC-PHL/FluViewer
+      run: bash .github/scripts/run_analysis_bccdc-phl.sh
+    - name: Create Output Checking Environment
+      run: bash .github/scripts/create_output_checking_environment.sh
+    - name: Check Outputs
+      run: bash .github/scripts/check_outputs.sh
+    - name: Prepare Artifacts
+      if: always()
+      run: bash .github/scripts/prepare_artifacts.sh
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: artifacts-BCCDC-PHL-FluViewer-python-v${{ matrix.python_version }}-${{ github.run_id }}.${{ github.run_attempt }}
+        path: artifacts
