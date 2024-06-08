@@ -25,7 +25,7 @@ while IFS=, read -r sample_id assembly; do
     fluviewer \
 	--forward-reads .github/data/fastq/${sample_id}_R1.fastq.gz \
 	--reverse-reads .github/data/fastq/${sample_id}_R2.fastq.gz \
-	--database .github/data/fluviewer_db/fluviewer_db \
+	--database .github/data/fluviewer_db-${database_version}/FluViewer_db.fa \
 	--outdir .github/data/test_output/fluviewer-bccdc-phl \
 	--output-name ${sample_id}
 

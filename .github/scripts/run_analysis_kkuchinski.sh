@@ -25,7 +25,7 @@ while IFS=, read -r sample_id assembly; do
     FluViewer \
 	-f .github/data/fastq/${sample_id}_R1.fastq.gz \
 	-r .github/data/fastq/${sample_id}_R2.fastq.gz \
-	-d .github/data/fluviewer_db/fluviewer_db \
+	-d .github/data/fluviewer_db-${database_version}/FluViewer_db.fa \
 	-n ${sample_id}
 
 done < .github/data/reads_to_simulate.csv    
