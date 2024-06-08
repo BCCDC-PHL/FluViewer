@@ -9,7 +9,7 @@ def parse_args():
     :return: Dictionary of arguments and their values.
     :rtype: dict
     """
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description='BCCDC-PHL/FluViewer: Influenza A virus consensus sequence generation and variant calling')
     parser.add_argument('-f', '--forward-reads', type=Path, required=True, help='Path to FASTQ file containing forward reads')
     parser.add_argument('-r', '--reverse-reads', type=Path, required=True, help='Path to FASTQ file containing reverse reads')
     parser.add_argument('-d', '--database', type=Path, required=True, help='Path to FASTA file containing FluViewer database')
