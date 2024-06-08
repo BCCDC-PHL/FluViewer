@@ -46,12 +46,25 @@ def main():
     log.info(f'BCCDC-PHL/FluViewer v{version}')
     version_split = version.split('-')
     log.info(f'Derived from: KevinKuchinski/FluViewer v{version_split[0]}')
-    log.info(f"Job name: {args.output_name}")
+    log.info(f'Inputs:')
     log.info(f"Fwd reads: {args.forward_reads}")
     log.info(f"Rev reads: {args.reverse_reads}")
     log.info(f"Reference sequences: {args.database}")
-    log.info(f"Output directory: {args.outdir}")
 
+    log.info(f"Outputs:")
+    log.info(f"Output directory: {args.outdir}")
+    log.info(f"Output name: {args.output_name}")
+
+    log.info(f'Parameters:')
+    log.info(f"Minimum percent identity: {args.min_identity}")
+    log.info(f"Minimum alignment length: {args.min_alignment_length}")
+    log.info(f"Minimum read depth: {args.min_depth}")
+    log.info(f"Minimum mapping quality: {args.min_mapping_quality}")
+    log.info(f"Variant allele fraction threshold for calling variants: {args.variant_threshold_calling}")
+    log.info(f"Variant allele fraction threshold for masking ambiguous variants: {args.variant_threshold_masking}")
+    log.info(f"Target depth for pre-normalization of reads: {args.target_depth}")
+    log.info(f"Coverage depth limit for variant calling: {args.coverage_limit}")
+    
 
     prepare_outdir(args.outdir, args.output_name)
 
@@ -62,7 +75,24 @@ def main():
         args.disable_garbage_collection
     )    
 
+    analysis_stages = [
+        'normalize_depth',
+        'assemble_contigs',
+        'blast_contigs',
+        'scaffolding',
+        'blast_scaffolds',
+        'read_mapping',
+        'variant_calling',
+        'consensus_calling',
+        'summary_reporting',
+    ]
+        
+        
     log.info('Starting analysis...')
+
+    current_analysis_stage = 'normalize_depth'
+    current_analysis_stage_index = analysis_stages.index(current_analysis_stage)
+    log.info(f'Beginning analysis stage: {current_analysis_stage}')
 
     normalize_depth(
         args.outdir,
@@ -74,11 +104,24 @@ def main():
         args.disable_garbage_collection
     )
 
+    log.info(f'Analysis stage complete: {current_analysis_stage}')
+
+
+    current_analysis_stage = 'assemble_contigs'
+    current_analysis_stage_index = analysis_stages.index(current_analysis_stage)
+    log.info(f'Beginning analysis stage: {current_analysis_stage}')
+
     assemble_contigs(
         args.outdir,
         args.output_name,
         args.disable_garbage_collection
     )
+
+    log.info(f'Analysis stage complete: {current_analysis_stage}')
+
+    current_analysis_stage = 'blast_contigs'
+    current_analysis_stage_index = analysis_stages.index(current_analysis_stage)
+    log.info(f'Beginning analysis stage: {current_analysis_stage}')
 
     blast_results = blast_contigs(
         args.database,
@@ -97,6 +140,12 @@ def main():
         args.disable_garbage_collection
     )
 
+    log.info(f'Analysis stage complete: {current_analysis_stage}')
+
+    current_analysis_stage = 'scaffolding'
+    current_analysis_stage_index = analysis_stages.index(current_analysis_stage)
+    log.info(f'Beginning analysis stage: {current_analysis_stage}')
+
     make_scaffold_seqs(
         filtered_blast_results,
         args.outdir,
@@ -113,6 +162,12 @@ def main():
     )
 
     filtered_scaffold_blast_results = filter_scaffold_blast_results(scaffold_blast_results)
+    
+    log.info(f'Analysis stage complete: {current_analysis_stage}')
+
+    current_analysis_stage = 'read_mapping'
+    current_analysis_stage_index = analysis_stages.index(current_analysis_stage)
+    log.info(f'Beginning analysis stage: {current_analysis_stage}')
 
     make_mapping_refs(
         blast_results,
@@ -125,13 +180,19 @@ def main():
         args.outdir,
         args.output_name,
         args.disable_garbage_collection,
-        args.min_quality,
+        args.min_mapping_quality,
     )
 
+    log.info(f'Analysis stage complete: {current_analysis_stage}')
+
+    current_analysis_stage = 'variant_calling'
+    current_analysis_stage_index = analysis_stages.index(current_analysis_stage)
+    log.info(f'Beginning analysis stage: {current_analysis_stage}')
+    
     call_variants(
         args.outdir,
         args.output_name,
-        args.min_quality,
+        args.min_mapping_quality,
         args.coverage_limit,
         args.disable_garbage_collection,
     )
@@ -142,9 +203,15 @@ def main():
         args.min_depth,
         args.variant_threshold_calling,
         args.variant_threshold_masking,
-        args.min_quality,
+        args.min_mapping_quality,
         args.disable_garbage_collection,
     )
+
+    log.info(f'Analysis stage complete: {current_analysis_stage}')
+
+    current_analysis_stage = 'consensus_calling'
+    current_analysis_stage_index = analysis_stages.index(current_analysis_stage)
+    log.info(f'Beginning analysis stage: {current_analysis_stage}')
 
     make_consensus_seqs(
         args.outdir,
@@ -152,6 +219,12 @@ def main():
         args.disable_garbage_collection,
     )
 
+    log.info(f'Analysis stage complete: {current_analysis_stage}')
+
+    current_analysis_stage = 'summary_reporting'
+    current_analysis_stage_index = analysis_stages.index(current_analysis_stage)
+    log.info(f'Beginning analysis stage: {current_analysis_stage}')
+    
     write_report(
         args.outdir,
         args.output_name,
@@ -1424,7 +1497,7 @@ def mask_ambig_low_cov(outdir, out_name, min_depth, vaf_call, vaf_ambig,
                 line = [segment_name[segment], start, end]
                 line = '\t'.join(str(i) for i in line)
                 f.write(line + '\n')
-    log.info('Wrote low coverage positions to {low_cov_path}')
+    log.info(f'Wrote low coverage positions to {low_cov_path}')
 
     # Write ambiguous positions to TSV file.
     ambig_path = os.path.join(outdir, out_name, 'ambig.tsv')
@@ -1434,7 +1507,7 @@ def mask_ambig_low_cov(outdir, out_name, min_depth, vaf_call, vaf_ambig,
                 line = [segment_name[segment], position]
                 line = '\t'.join(str(i) for i in line)
                 f.write(line + '\n')
-    log.info('Wrote ambiguous positions to {ambig_path}')
+    log.info(f'Wrote ambiguous positions to {ambig_path}')
 
     # Write variant positions to TSV file.
     variant_path = os.path.join(outdir, out_name, 'variants.tsv')
@@ -1444,7 +1517,7 @@ def mask_ambig_low_cov(outdir, out_name, min_depth, vaf_call, vaf_ambig,
                 line = [segment_name[segment], position]
                 line = '\t'.join(str(i) for i in line)
                 f.write(line + '\n')
-    log.info('Wrote variant positions to {variant_path}')
+    log.info(f'Wrote variant positions to {variant_path}')
               
     # Write spans of masked positions to BED file in BedGraph format.
     masked_path = os.path.join(outdir, out_name, 'masked.bed')          
@@ -1454,7 +1527,7 @@ def mask_ambig_low_cov(outdir, out_name, min_depth, vaf_call, vaf_ambig,
                 line = [segment_name[segment], start, end + 1, 0]
                 line = '\t'.join(str(i) for i in line)
                 f.write(line + '\n')
-    log.info('Wrote masked positions to {masked_path}')
+    log.info(f'Wrote masked positions to {masked_path}')
 
 
 def make_consensus_seqs(outdir, out_name, collect_garbage):

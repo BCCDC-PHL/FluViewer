@@ -18,7 +18,7 @@ def parse_args():
     parser.add_argument('-i', '--min-identity', type=float, default=90, metavar="[0-100]", help='Minimum percent sequence identity between database reference sequences and contigs (default=90)')
     parser.add_argument('-l', '--min-alignment-length', type=int, default=50, metavar="[32-]", help='Minimum length of alignment between database reference sequences and contigs (default=50)')
     parser.add_argument('-D', '--min-depth', type=int, default=20, metavar="[1-]", help='Minimum read depth for base calling (default=20)')
-    parser.add_argument('-q', '--min-quality', type=int, default=20, metavar="[0-]", help='Minimum PHRED score for mapping quality and base quality during variant calling (default=20)')
+    parser.add_argument('-q', '--min-mapping-quality', type=int, default=20, metavar="[0-]", help='Minimum PHRED score for mapping quality and base quality during variant calling (default=20)')
     parser.add_argument('-v', '--variant-threshold-calling', type=float, default=0.75, metavar="[0-1]", help='Variant allele fraction threshold for calling variants (default=0.75)')
     parser.add_argument('-V', '--variant-threshold-masking', type=float, default=0.25, metavar="[0-1]", help='Variant allele fraction threshold for masking ambiguous variants (default=0.25)')
     parser.add_argument('-N', '--target-depth', type=int, default=200, metavar="[1-]", help='Target depth for pre-normalization of reads (default=200)')
@@ -56,8 +56,8 @@ def validate_args(args):
                                   'error_msg': 'Minimum alignment length must be at least 32: {0}' },
         'min_depth': { 'validation_fn': lambda x: x >= 1,
                        'error_msg': 'Minimum read depth must be at least 1: {0}' },
-        'min_quality': { 'validation_fn': lambda x: x >= 0,
-                         'error_msg': 'Minimum PHRED score must be at least 0: {0}' },
+        'min_mapping_quality': { 'validation_fn': lambda x: x >= 0,
+                                 'error_msg': 'Minimum PHRED score must be at least 0: {0}' },
         'variant_threshold_calling': { 'validation_fn': lambda x: 0 <= x <= 1,
                                        'error_msg': 'Variant allele fraction threshold for calling variants must be between 0 and 1: {0}' },
         'variant_threshold_masking': { 'validation_fn': lambda x: 0 <= x <= 1,
