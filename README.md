@@ -23,8 +23,46 @@ pip3 install .
 4. Download and unzip the default FluViewer DB (FluViewer_db.fa.gz) provided in [the BCCDC-PHL/FluViewer-db](https://github.com/BCCDC-PHL/FluViewer-db) repository. Custom DBs can be created and used as well (instructions below).
 
 ## Usage
+
 ```
-FluViewer -f <path_to_fwd_reads> -r <path_to_rev_reads> -d <path_to_db_file> -n <output_name> [ <optional_args> ]
+usage: fluviewer [-h] -f FORWARD_READS -r REVERSE_READS -d DATABASE [-o OUTDIR] -n OUTPUT_NAME [-i [0-100]] [-l [32-]] [-D [1-]] [-q [0-]] [-v [0-1]] [-V [0-1]] [-N [1-]] [-L [1-]] [-t [1-]] [-M [1-]] [-g] [--log-level {info,debug}]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -f FORWARD_READS, --forward-reads FORWARD_READS
+                        Path to FASTQ file containing forward reads
+  -r REVERSE_READS, --reverse-reads REVERSE_READS
+                        Path to FASTQ file containing reverse reads
+  -d DATABASE, --database DATABASE
+                        Path to FASTA file containing FluViewer database
+  -o OUTDIR, --outdir OUTDIR
+                        Output directory (default=FluViewer_<output-name>)
+  -n OUTPUT_NAME, --output-name OUTPUT_NAME
+                        Output name. Creates directory with this name for output, includes this name in output files, and in consensus sequence headers
+  -i [0-100], --min-identity [0-100]
+                        Minimum percent sequence identity between database reference sequences and contigs (default=90)
+  -l [32-], --min-alignment-length [32-]
+                        Minimum length of alignment between database reference sequences and contigs (default=50)
+  -D [1-], --min-depth [1-]
+                        Minimum read depth for base calling (default=20)
+  -q [0-], --min-quality [0-]
+                        Minimum PHRED score for mapping quality and base quality during variant calling (default=20)
+  -v [0-1], --variant-threshold-calling [0-1]
+                        Variant allele fraction threshold for calling variants (default=0.75)
+  -V [0-1], --variant-threshold-masking [0-1]
+                        Variant allele fraction threshold for masking ambiguous variants (default=0.25)
+  -N [1-], --target-depth [1-]
+                        Target depth for pre-normalization of reads (default=200)
+  -L [1-], --coverage-limit [1-]
+                        Coverage depth limit for variant calling (default=200)
+  -t [1-], --threads [1-]
+                        Threads used for contig/scaffold alignments (default=1)
+  -M [1-], --max-memory [1-]
+                        Gigabytes of memory allocated for normalizing reads (default=max)
+  -g, --disable-garbage-collection
+                        Disable garbage collection and retain intermediate analysis files
+  --log-level {info,debug}
+                        Log level (default=info)
 ```
 
 <b>Required arguments:</b>
