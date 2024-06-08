@@ -4,7 +4,7 @@ FluViewer is an automated pipeline for generating influenza A virus (IAV) genome
 
 This codebase is derived from [KevinKuchinski/FluViewer](https://github.com/KevinKuchinski/FluViewer), with modifications applied to meet operational needs of BCCDC-PHL.
 
-## Analysis Process Summary
+## Analysis Stages
 
 1. **Read Normalization**: The provided reads are normalized and downsampled using a kmer-based approach from [bbmap](https://sourceforge.net/projects/bbmap) called `bbnorm`. This reduces any excessive coverage of certain genome regions.
 
