@@ -44,6 +44,8 @@ def main():
     
 
     log.info(f'BCCDC-PHL/FluViewer v{version}')
+    version_split = version.split('-')
+    log.info(f'Derived from: KevinKuchinski/FluViewer v{version_split[0]}')
     log.info(f"Job name: {args.output_name}")
     log.info(f"Fwd reads: {args.forward_reads}")
     log.info(f"Rev reads: {args.reverse_reads}")

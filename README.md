@@ -125,7 +125,9 @@ For internal segments (i.e. PB2, PB1, PA, NP, M, and NS), strain_subtype should 
 FluViewer will only accept reference sequences composed entirely of uppercase canonical nucleotides (i.e. A, T, G, and C).
 
 ## FluViewer Output
+
 FluViewer generates four main output files for each library:
+
 1. A FASTA file containing consensus sequences for the IAV genome segments
 2. A sorted BAM file with reads mapped to the mapping references generated for that library (the mapping reference is also retained)
 3. A report TSV file describing segment, subtype, and sequencing metrics for each consensus sequence generated
