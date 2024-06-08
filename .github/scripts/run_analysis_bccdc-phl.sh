@@ -18,7 +18,7 @@ fi
 
 database_version="v0.1.8"
 
-mkdir -p .github/data/test_output/fluviewer-bccdc-phl
+mkdir -p .github/data/test_output
 
 while IFS=, read -r sample_id assembly; do
     echo ${sample_id}
