@@ -6,7 +6,7 @@ eval "$(conda shell.bash hook)"
 
 fluviewer_version="0.1.11"
 
-conda env create -f environment.yml -n fluviewer-kkuchinski
+conda env create -f environment.yaml -n fluviewer-kkuchinski
 
 conda activate fluviewer-kkuchinski
 
