@@ -65,7 +65,7 @@ optional arguments:
                         Log level (default=info)
 ```
 
-<b>Required arguments:</b>
+### Required arguments
 
 -f : path to FASTQ file containing forward reads (trim sequencing adapters/primer before analysis)
 
@@ -76,7 +76,7 @@ optional arguments:
 -n : output name (creates directory with this name for output, includes this name in output files, and in consensus sequence headers)
 
 
-<b>Optional arguments:</b>
+### Optional arguments
 
 -i : Minimum sequence identity between database reference sequences and contigs (percentage, default = 90, min = 0, max = 100)
 
@@ -94,7 +94,7 @@ optional arguments:
 
 -L : Coverage depth limit for variant calling (int, default = 200, min = 1)
 
--T : Threads used for BLAST alignments (int, default = 1, min = 1)
+-t : Threads used for BLAST alignments (int, default = 1, min = 1)
 
 
 <b>Optional flags:</b>
