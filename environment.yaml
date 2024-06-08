@@ -2,6 +2,7 @@ name: fluviewer
 channels:
   - bioconda
   - conda-forge
+  - defaults
 dependencies:
   - bbmap=39.01
   - bcftools=1.17
