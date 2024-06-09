@@ -9,6 +9,7 @@ on:
 name: Consistency Check
 jobs:
   test:
+    name: Check Consistency vs. KevinKuchinski/FluViewer
     strategy:
       fail-fast: false
       matrix:
@@ -20,7 +21,6 @@ jobs:
           #  - "3.10"
           - "3.11"
           - "3.12"
-    name: Run tests
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@master
