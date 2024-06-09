@@ -17,6 +17,7 @@ else
     echo "Running in GitHub Actions environment."
     num_threads=2
 fi
+echo "Number of threads used for analysis: ${num_threads}"
 
 database_version="v0.1.8"
 
