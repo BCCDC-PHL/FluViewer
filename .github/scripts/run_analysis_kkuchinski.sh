@@ -18,7 +18,7 @@ fi
 
 database_version="v0.1.8"
 
-mkdir -p .github/data/test_output_kkuchinski
+mkdir -p .github/data/test_output/fluviewer-kkuchinski
 
 while IFS=, read -r sample_id assembly; do
     echo ${sample_id}
@@ -27,6 +27,9 @@ while IFS=, read -r sample_id assembly; do
 	-r .github/data/fastq/${sample_id}_R2.fastq.gz \
 	-d .github/data/fluviewer_db-${database_version}/FluViewer_db.fa \
 	-n ${sample_id}
+
+    mv ${sample_id} .github/data/test_output/fluviewer-kkuchinski/${sample_id}
+    
 
 done < .github/data/reads_to_simulate.csv    
     
