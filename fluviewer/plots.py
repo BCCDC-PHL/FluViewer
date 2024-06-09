@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 
 import fluviewer.logging
 
+import fluviewer.fluviewer
+
 log = fluviewer.logging.get_logger(__name__, 'info')
 
 def make_plots(outdir, out_name, collect_garbage):
@@ -28,7 +30,7 @@ def make_plots(outdir, out_name, collect_garbage):
     terminal_command = (f'samtools depth {filtered_alignment} > {depth_of_cov}')
     process_name = 'samtools_depth'
     error_code = 24
-    fluviewer.run(terminal_command, outdir, out_name, process_name, error_code, collect_garbage)
+    fluviewer.fluviewer.run(terminal_command, outdir, out_name, process_name, error_code, collect_garbage)
     cols = ['seq_name', 'position', 'depth_samtools']
     samtools_data = pd.read_csv(depth_of_cov, sep='\t', names=cols)
 
@@ -74,24 +76,24 @@ def make_plots(outdir, out_name, collect_garbage):
         ax.set_yticks(y_ticks)
         ax.set_title(segment)
         ax.axvspan(segment_data['position'].max(), max_position, color='grey')
-        with open(os.path.join(out_name, 'low_cov.tsv'), 'r') as input_file:
+        with open(os.path.join(outdir, out_name, 'low_cov.tsv'), 'r') as input_file:
             for line in input_file:
                 seq_name, start, stop = line.strip().split('\t')
                 if seq_name.split('|')[1] == segment:
                     for position in range(int(start), int(stop) + 1):
                         ax.axvline(position, color='red', alpha = 0.5)
-        with open(os.path.join(out_name, 'ambig.tsv'), 'r') as input_file:
+        with open(os.path.join(outdir, out_name, 'ambig.tsv'), 'r') as input_file:
             for line in input_file:
                 seq_name, position = line.strip().split('\t')
                 if seq_name.split('|')[1] == segment:
                     ax.axvline(int(position), color='orange', alpha = 0.5)
-        with open(os.path.join(out_name, 'variants.tsv'), 'r') as input_file:
+        with open(os.path.join(outdir, out_name, 'variants.tsv'), 'r') as input_file:
             for line in input_file:
                 seq_name, position = line.strip().split('\t')
                 if seq_name.split('|')[1] == segment:
                     ax.axvline(int(position), color='blue', alpha = 0.5)        
     plt.tight_layout()
-    plots = os.path.join(out_name, f'{out_name}_depth_of_cov.png')
+    plots = os.path.join(outdir, out_name, f'{out_name}_depth_of_cov.png')
     plt.savefig(plots, dpi=400)
     plt.close()
     

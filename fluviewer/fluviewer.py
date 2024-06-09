@@ -168,7 +168,7 @@ def main():
     log.info(f'Beginning analysis stage: {current_analysis_stage}')
 
     make_mapping_refs(
-        blast_results,
+        filtered_scaffold_blast_results,
         args.database,
         args.outdir,
         args.output_name,
@@ -229,7 +229,7 @@ def main():
         args.disable_garbage_collection,
     )
 
-    make_plots(
+    plots.make_plots(
         args.outdir,
         args.output_name,
         args.disable_garbage_collection,
@@ -1597,10 +1597,12 @@ def make_consensus_seqs(outdir, out_name, collect_garbage):
                       f'({min_length} to {max_length} bases).\n')
             exit(22)
 
-def write_report(out_name, collect_garbage):
+def write_report(outdir, out_name, collect_garbage):
     """
     Generate a report for each segment.
 
+    :param outdir: Path to the output directory.
+    :type outdir: Path
     :param out_name: Name used for outputs.
     :type out_name: str
     :param collect_garbage: Whether to remove intermediate files.
@@ -1615,7 +1617,7 @@ def write_report(out_name, collect_garbage):
                         f'{reads_mapped}')
     process_name = 'samtools_idxstats'
     error_code = 23
-    run(terminal_command, out_name, process_name, error_code, collect_garbage)
+    run(terminal_command, outdir, out_name, process_name, error_code, collect_garbage)
     cols = 'seq_name seq_length reads_mapped reads_unmapped'.split(' ')
     reads_mapped = pd.read_csv(reads_mapped, sep='\t', names=cols)
     reads_mapped = reads_mapped.replace('*', np.nan).dropna()
@@ -1623,14 +1625,16 @@ def write_report(out_name, collect_garbage):
     reads_mapped['seq_name'] = reads_mapped.apply(get_seq_name, axis=1) 
     cols = ['seq_name', 'reads_mapped', 'seq_length']
     report = reads_mapped[cols].drop_duplicates()
-    ''' Annotate segment and subtype. '''
+    
+    # Annotate segment and subtype.
     get_segment = lambda row: row['seq_name'].split('|')[1]
     report['segment'] = report.apply(get_segment, axis=1)
     get_subtype = lambda row: row['seq_name'].split('|')[2]
-    report['subtype'] = report.apply(get_subtype, axis=1) 
-    ''' Add scaffold completeness to report. '''
+    report['subtype'] = report.apply(get_subtype, axis=1)
+    
+    #Add scaffold completeness to report.
     seqs = {}
-    scaffolds = os.path.join(out_name, 'scaffolds.fa')
+    scaffolds = os.path.join(outdir, out_name, 'scaffolds.fa')
     with open(scaffolds, 'r') as input_file:
         for line in input_file:
             if line[0] == '>':
@@ -1645,9 +1649,10 @@ def write_report(out_name, collect_garbage):
         perc = round(perc, 2)
         completeness[segment] = perc
     report['scaffold_completeness'] = report['segment'].map(completeness)
-    ''' Add consensus completeness to report. '''                                                                                                                                                                     
+
+    # Add consensus completeness to report.
     seqs = {}
-    consensus_seqs = os.path.join(out_name, f'{out_name}_consensus_seqs.fa')
+    consensus_seqs = os.path.join(outdir, out_name, f'{out_name}_consensus_seqs.fa')
     with open(consensus_seqs, 'r') as input_file:
         for line in input_file:
             if line[0] == '>':
@@ -1662,9 +1667,10 @@ def write_report(out_name, collect_garbage):
         perc = round(perc, 2)
         completeness[segment] = perc
     report['consensus_completeness'] = report['segment'].map(completeness)
-    ''' Add best ref seq to report. '''                                                                                                                                                                               
+    
+    # Add best ref seq to report.
     ref_seqs_used = {}
-    mapping_refs = os.path.join(out_name, f'{out_name}_mapping_refs.fa')
+    mapping_refs = os.path.join(outdir, out_name, f'{out_name}_mapping_refs.fa')
     with open(mapping_refs, 'r') as input_file:
         for line in input_file:
             if line[0] == '>':
@@ -1675,19 +1681,17 @@ def write_report(out_name, collect_garbage):
                 ref_seqs_used[seq_name] = (f'{accession}|{ref_name}'
                                            f'({ref_subtype})')
     report['ref_seq_used'] = report['seq_name'].map(ref_seqs_used)
-    ''' Write report to TSV file. '''                                                                                                                                
+    
+    # Write report to TSV file.
     segment_order ='PB2 PB1 PA HA NP NA M NS'.split(' ')
     get_sort_value = lambda row: segment_order.index(row['segment'])
-    report['sort'] = report.apply(get_sort_value, axis=1)                                                                                                                              
-    report = report.sort_values(by='sort')                                                                                                                                                                              
+    report['sort'] = report.apply(get_sort_value, axis=1)
+    report = report.sort_values(by='sort')
     cols = ['seq_name', 'segment', 'subtype', 'reads_mapped', 'seq_length',
             'scaffold_completeness', 'consensus_completeness', 'ref_seq_used']
     report = report[cols]
-    report.to_csv(os.path.join(out_name, f'{out_name}_report.tsv'),
+    report.to_csv(os.path.join(outdir, out_name, f'{out_name}_report.tsv'),
                   index=False, sep='\t')
-
-
-    plots.make_plots(outdir, out_name, collect_garbage)
 
 
 if __name__ == '__main__':

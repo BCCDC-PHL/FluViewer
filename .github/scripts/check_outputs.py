@@ -8,7 +8,7 @@ import os
 
 from pathlib import Path
 
-def check_expected_files_exist(output_dir, sample_ids, pipeline_version):
+def check_expected_files_exist(output_dir, pipeline_version, sample_ids):
     """
     Check that the expected files exist in the output directory.
 
@@ -39,12 +39,17 @@ def main(args):
     output_dir = os.path.dirname(args.output)
     os.makedirs(output_dir, exist_ok=True)
 
-    # TODO: Add more tests
+    # TODO: read this from the 'reads_to_simulate.csv' file
+    sample_ids = [
+        'MK58361X-H3N2'
+    ]
     all_expected_files_exist_checks = []
     for pipeline_version in ['kkuchinski', 'bccdc-phl']:
-        all_expected_files_exist = check_expected_files_exist(args.pipeline_outdir, sample_ids, pipeline_version)
+        pipeline_outdir = getattr(args, f'analysis_outdir_{pipeline_version.replace("-", "_")}')
+        all_expected_files_exist = check_expected_files_exist(pipeline_outdir, pipeline_version, sample_ids)
         all_expected_files_exist_checks.append(all_expected_files_exist)
-        
+
+    # TODO: Add more tests
     tests = [
         {
             "test_name": "all_expected_files_exist",

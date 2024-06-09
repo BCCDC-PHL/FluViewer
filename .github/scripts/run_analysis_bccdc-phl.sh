@@ -24,14 +24,16 @@ database_version="v0.1.8"
 mkdir -p .github/data/test_output
 
 while IFS=, read -r sample_id assembly; do
-    echo ${sample_id}
+    echo "Analyzing sample: ${sample_id}"
     fluviewer \
 	--threads ${num_threads} \
+	--disable-garbage-collection \
 	--forward-reads .github/data/fastq/${sample_id}_R1.fastq.gz \
 	--reverse-reads .github/data/fastq/${sample_id}_R2.fastq.gz \
 	--database .github/data/fluviewer_db-${database_version}/FluViewer_db.fa \
 	--outdir .github/data/test_output/fluviewer-bccdc-phl \
 	--output-name ${sample_id}
+    echo "Finished analyzing sample: ${sample_id}"
 
 done < .github/data/reads_to_simulate.csv    
     

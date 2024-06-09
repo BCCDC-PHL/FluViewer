@@ -9,6 +9,8 @@ curl -o .github/data/assemblies/MK583613.1_segment_4_HA_H3N2.fa "https://eutils.
 curl -o .github/data/assemblies/MK583614.1_segment_5_NP_H3N2.fa "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?retmode=text&id=MK583614.1&db=nucleotide&rettype=fasta"
 curl -o .github/data/assemblies/MK583615.1_segment_6_NA_H3N2.fa "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?retmode=text&id=MK583615.1&db=nucleotide&rettype=fasta"
 
-cat .github/data/assemblies/MK58361*.fa > .github/data/assemblies/MK58361X-H3N2.fa
+cat .github/data/assemblies/MK58361*.fa > .github/data/assemblies/tmp.fa
 
-rm .github/data/assemblies/MK58361*.1_segment_*.fa
+rm .github/data/assemblies/MK58361*.*_segment_*.fa
+
+mv .github/data/assemblies/tmp.fa .github/data/assemblies/MK58361X-H3N2.fa

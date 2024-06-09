@@ -1,3 +1,5 @@
+[![Consistency Check](https://github.com/BCCDC-PHL/FluViewer/actions/workflows/consistency_check.yml/badge.svg)](https://github.com/BCCDC-PHL/FluViewer/actions/workflows/consistency_check.yml)
+
 # BCCDC-PHL/FluViewer
 
 FluViewer is an automated pipeline for generating influenza A virus (IAV) genome sequences from FASTQ data. If provided with a sufficiently diverse and representative database of IAV reference sequences, it can generate sequences regardless of host and subtype without any human intervention required.

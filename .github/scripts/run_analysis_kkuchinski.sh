@@ -24,16 +24,17 @@ database_version="v0.1.8"
 mkdir -p .github/data/test_output/fluviewer-kkuchinski
 
 while IFS=, read -r sample_id assembly; do
-    echo ${sample_id}
+    echo "Analyzing sample ${sample_id}"
+    rm -rf ./${sample_id}
     FluViewer \
 	-T ${num_threads} \
+	-g \
 	-f .github/data/fastq/${sample_id}_R1.fastq.gz \
 	-r .github/data/fastq/${sample_id}_R2.fastq.gz \
 	-d .github/data/fluviewer_db-${database_version}/FluViewer_db.fa \
 	-n ${sample_id}
 
     mv ${sample_id} .github/data/test_output/fluviewer-kkuchinski/${sample_id}
-    
+    echo "Finished analyzing sample ${sample_id}"
 
-done < .github/data/reads_to_simulate.csv    
-    
+done < .github/data/reads_to_simulate.csv
