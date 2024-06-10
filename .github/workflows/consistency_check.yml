@@ -39,11 +39,11 @@ jobs:
     - name: Install KevinKuchinski/FluViewer
       run: bash .github/scripts/install_fluviewer_kkuchinski.sh
     - name: Run analysis with KevinKuchinski/FluViewer
-      run: bash .github/scripts/run_analysis_kkuchinski.sh
+      run: bash .github/scripts/run_analysis_upstream.sh
     - name: Install BCCDC-PHL/FluViewer
       run: bash .github/scripts/install_fluviewer_bccdc-phl.sh
     - name: Run analysis with BCCDC-PHL/FluViewer
-      run: bash .github/scripts/run_analysis_bccdc-phl.sh
+      run: bash .github/scripts/run_analysis_origin.sh
     - name: Check Outputs
       run: bash .github/scripts/check_outputs.sh
     - name: Prepare Artifacts

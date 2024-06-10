@@ -21,7 +21,7 @@ echo "Number of threads used for analysis: ${num_threads}"
 
 database_version="v0.1.8"
 
-mkdir -p .github/data/test_output/fluviewer-kkuchinski
+mkdir -p .github/data/test_output/KevinKuchinski-FluViewer-output
 
 while IFS=, read -r sample_id assembly; do
     echo "Analyzing sample ${sample_id}"
@@ -34,7 +34,7 @@ while IFS=, read -r sample_id assembly; do
 	-d .github/data/fluviewer_db-${database_version}/FluViewer_db.fa \
 	-n ${sample_id}
 
-    mv ${sample_id} .github/data/test_output/fluviewer-kkuchinski/${sample_id}
+    mv ${sample_id} .github/data/test_output/KevinKuchinski-FluViewer-output/${sample_id}
     echo "Finished analyzing sample ${sample_id}"
 
 done < .github/data/reads_to_simulate.csv

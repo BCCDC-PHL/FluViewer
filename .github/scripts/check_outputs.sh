@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-set -e -o pipefail
-
 .github/scripts/check_outputs.py \
-    --analysis-outdir-kkuchinski .github/data/test_output/fluviewer-kkuchinski \
-    --analysis-outdir-bccdc-phl .github/data/test_output/fluviewer-bccdc-phl \
-    -o artifacts/check_outputs_results.csv
+    --analysis-outdir-upstream .github/data/test_output/KevinKuchinski-FluViewer-output \
+    --analysis-outdir-origin .github/data/test_output/BCCDC-PHL-FluViewer-output \
+    --outdir artifacts
+
+column -ts ',' artifacts/check_outputs_summary.csv
