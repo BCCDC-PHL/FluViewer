@@ -23,14 +23,14 @@ if [ ! -d ${fluviewer_kkuchinski_env_dir} ]; then
     .github/scripts/install_fluviewer_kkuchinski.sh
 fi
 
-.github/scripts/run_analysis_kkuchinski.sh
+.github/scripts/run_analysis_upstream.sh
 
 fluviewer_bccdc_phl_env_dir="${HOME}/.conda/envs/fluviewer-bccdc-phl"
 if [ ! -d ${fluviewer_bccdc_phl_env_dir} ]; then
     .github/scripts/install_fluviewer_bccdc-phl.sh
 fi
 
-.github/scripts/run_analysis_bccdc-phl.sh
+.github/scripts/run_analysis_origin.sh
 
 .github/scripts/check_outputs.sh
 
