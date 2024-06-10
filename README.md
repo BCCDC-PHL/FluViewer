@@ -15,7 +15,8 @@ This codebase is derived from [KevinKuchinski/FluViewer](https://github.com/Kevi
 3. **Blast Contigs**: The contigs are then aligned to a database of IAV reference sequences using [BLAST](http://blast.ncbi.nlm.nih.gov/Blast.cgi?PAGE_TYPE=BlastDocs).
 These alignments are used to trim contigs and roughly position them within their respective genome segment.
 
-4. **Scaffolding**: A multiple sequencing alignment is conducted on the trimmed/positioned contigs using [clustalw](http://www.clustal.org), generating scaffold sequences for each IAV genome segment. These scaffolds are aligned to the IAV reference sequence database to find their best matches.
+4. **Scaffolding**: A multiple sequencing alignment is conducted on the trimmed/positioned contigs using [clustalw](http://www.clustal.org), generating scaffold sequences for each IAV genome segment.
+These scaffolds are aligned to the IAV reference sequence database to find their best matches.
 These best matches are used to fill in any missing regions in the scaffold, creating mapping references.
 
 5. **Read Mapping**: The normalized/downsampled reads are mapped to these mapping references using [bwa](https://github.com/lh3/bwa).
