@@ -14,11 +14,9 @@ jobs:
       fail-fast: false
       matrix:
         python_version:
-          # Temporarily disabled while troubleshooting workflow
-          #  - "3.7"
-          #  - "3.8"
-          #  - "3.9"
-          #  - "3.10"
+          - "3.8"
+          - "3.9"
+          - "3.10"
           - "3.11"
           - "3.12"
     runs-on: ubuntu-latest
