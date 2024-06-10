@@ -89,26 +89,59 @@ def main(args):
     output_file_mapping_by_sample_id = {}
     for sample_id in sample_ids:
         output_file_mapping = {
-            'HA_contigs': {"upstream": os.path.join(sample_id, "HA_contigs.fa"),
-                           "origin":   os.path.join(sample_id, "HA_contigs.fa")},
-            'HA_contigs_alignment': {"upstream": os.path.join(sample_id, "HA_contigs.afa"),
-                                     "origin":   os.path.join(sample_id, "HA_contigs.afa")},
-            'NA_contigs': {"upstream": os.path.join(sample_id, "NA_contigs.fa"),
-                           "origin":   os.path.join(sample_id, "NA_contigs.fa")},
-            'NA_contigs_alignment': {"upstream": os.path.join(sample_id, "NA_contigs.afa"),
-                                     "origin":   os.path.join(sample_id, "NA_contigs.afa")},
-            'NP_contigs': {"upstream": os.path.join(sample_id, "NP_contigs.fa"),
-                           "origin":   os.path.join(sample_id, "NP_contigs.fa")},
-            'NP_contigs_alignment': {"upstream": os.path.join(sample_id, "NP_contigs.afa"),
-                                     "origin":   os.path.join(sample_id, "NP_contigs.afa")},
-            'depth_of_cov_samtools': {"upstream": os.path.join(sample_id, "depth_of_cov_samtools.tsv"),
-                                      "origin":   os.path.join(sample_id, "depth_of_cov_samtools.tsv")},
+            'HA_contigs':             {"upstream": os.path.join(sample_id, "HA_contigs.fa"),
+                                       "origin":   os.path.join(sample_id, "HA_contigs.fa")},
+            'HA_contigs_alignment':   {"upstream": os.path.join(sample_id, "HA_contigs.afa"),
+                                       "origin":   os.path.join(sample_id, "HA_contigs.afa")},
+            'NA_contigs':             {"upstream": os.path.join(sample_id, "NA_contigs.fa"),
+                                       "origin":   os.path.join(sample_id, "NA_contigs.fa")},
+            'NA_contigs_alignment':   {"upstream": os.path.join(sample_id, "NA_contigs.afa"),
+                                       "origin":   os.path.join(sample_id, "NA_contigs.afa")},
+            'NP_contigs':             {"upstream": os.path.join(sample_id, "NP_contigs.fa"),
+                                       "origin":   os.path.join(sample_id, "NP_contigs.fa")},
+            'NP_contigs_alignment':   {"upstream": os.path.join(sample_id, "NP_contigs.afa"),
+                                       "origin":   os.path.join(sample_id, "NP_contigs.afa")},
+            'PA_contigs':             {"upstream": os.path.join(sample_id, "PA_contigs.fa"),
+                                       "origin":  os.path.join(sample_id, "PA_contigs.fa")},
+            'PA_contigs_alignment':   {"upstream": os.path.join(sample_id, "PA_contigs.afa"),
+                                       "origin":   os.path.join(sample_id, "PA_contigs.afa")},
+            'PB1_contigs':            {"upstream": os.path.join(sample_id, "PB1_contigs.fa"),
+                                        "origin":   os.path.join(sample_id, "PB1_contigs.fa")},
+            'PB1_contigs_alignment':  {"upstream": os.path.join(sample_id, "PB1_contigs.afa"),
+                                       "origin":   os.path.join(sample_id, "PB1_contigs.afa")},
+            'PB2_contigs':            {"upstream": os.path.join(sample_id, "PB2_contigs.fa"),
+                                       "origin":   os.path.join(sample_id, "PB2_contigs.fa")},
+            'PB2_contigs_alignment':  {"upstream": os.path.join(sample_id, "PB2_contigs.afa"),
+                                       "origin":   os.path.join(sample_id, "PB2_contigs.afa")},
+            'normalized_reads_r1':    {"upstream": os.path.join(sample_id, "R1.fq"),
+                                       "origin":   os.path.join(sample_id, "R1.fq")},
+            'normalized_reads_r2':    {"upstream": os.path.join(sample_id, "R2.fq"),
+                                       "origin":   os.path.join(sample_id, "R2.fq")},
+            'alignment_sam':          {"upstream": os.path.join(sample_id, "alignment.sam"),
+                                       "origin":   os.path.join(sample_id, "alignment.sam")},
+            'ambig_tsv':              {"upstream": os.path.join(sample_id, "ambig.tsv"),
+                                       "origin":   os.path.join(sample_id, "ambig.tsv")},
+            'contigs_blast':          {"upstream": os.path.join(sample_id, "contigs_blast.tsv"),
+                                       "origin":   os.path.join(sample_id, "contigs_blast.tsv")},
             'depth_of_cov_freebayes': {"upstream": os.path.join(sample_id, "depth_of_cov_freebayes.tsv"),
                                        "origin":   os.path.join(sample_id, "depth_of_cov_freebayes.tsv")},
-            'normalized_reads_r1': {"upstream": os.path.join(sample_id, "R1.fq"),
-                                    "origin":   os.path.join(sample_id, "R1.fq")},
-            'normalized_reads_r2': {"upstream": os.path.join(sample_id, "R2.fq"),
-                                    "origin":   os.path.join(sample_id, "R2.fq")},
+            'depth_of_cov_samtools':  {"upstream": os.path.join(sample_id, "depth_of_cov_samtools.tsv"),
+                                       "origin":   os.path.join(sample_id, "depth_of_cov_samtools.tsv")},
+            'low_cov':                {"upstream": os.path.join(sample_id, "low_cov.tsv"),
+                                       "origin":   os.path.join(sample_id, "low_cov.tsv")},
+            'masked_bed':             {"upstream": os.path.join(sample_id, "masked.bed"),
+                                       "origin":   os.path.join(sample_id, "masked.bed")},
+            'pileup_vcf':             {"upstream": os.path.join(sample_id, "pileup.vcf"),
+                                       "origin":   os.path.join(sample_id, "pileup.vcf")},
+            'reads_mapped_tsv':       {"upstream": os.path.join(sample_id, "reads_mapped.tsv"),
+                                       "origin":   os.path.join(sample_id, "reads_mapped.tsv")},
+            'scaffolds_fasta':        {"upstream": os.path.join(sample_id, "scaffolds.fa"),
+                                       "origin":   os.path.join(sample_id, "scaffolds.fa")},
+            'scaffolds_blast_tsv':    {"upstream": os.path.join(sample_id, "scaffolds_blast.tsv"),
+                                       "origin":   os.path.join(sample_id, "scaffolds_blast.tsv")},
+            'variants_tsv':           {"upstream": os.path.join(sample_id, "variants.tsv"),
+                                       "origin":   os.path.join(sample_id, "variants.tsv")},
+            
         }
         output_file_mapping_by_sample_id[sample_id] = output_file_mapping
 
@@ -131,10 +164,23 @@ def main(args):
               
     all_expected_files_exist = all([check['upstream_exists'] and check['origin_exists'] for check in expected_files_exist_checks])
 
+    files_whose_md5sums_are_not_expected_to_match = [
+        'alignment_sam',
+        'pileup_vcf',
+    ]
+    output_file_mapping_by_sample_id_for_md5sum_check = {}
+    for sample_id, output_files in output_file_mapping_by_sample_id.items():
+        for file_type, paths_by_pipeline in output_files.items():
+            if file_type in files_whose_md5sums_are_not_expected_to_match:
+                continue
+            if sample_id not in output_file_mapping_by_sample_id_for_md5sum_check:
+                output_file_mapping_by_sample_id_for_md5sum_check[sample_id] = {}
+            output_file_mapping_by_sample_id_for_md5sum_check[sample_id][file_type] = paths_by_pipeline
+
     expected_md5sums_match_checks = check_expected_md5sums_match(
         pipeline_outdirs,
         sample_ids,
-        output_file_mapping_by_sample_id
+        output_file_mapping_by_sample_id_for_md5sum_check
     )
     
     expected_md5sums_match_output_path = os.path.join(args.outdir, "check_md5sums_match.csv")
