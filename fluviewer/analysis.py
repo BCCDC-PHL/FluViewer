@@ -30,7 +30,12 @@ error_messages_by_code = {
     8: 'Multiple subtypes detected for segment.',
     9: 'Error running ClustalW.',
     10: 'Error generating scaffold sequences.',
-    11: 'Error generating consensus sequences.',
+    11: 'Error running BLASTn.',
+    12: 'No contigs aligned to reference sequences.',
+    13: 'Multiple subtypes detected for segment.',
+    14: 'Error running ClustalW.',
+    15: 'Error generating scaffold sequences.',
+    16: 'Error running BLASTn.',
 }
 
 
@@ -546,7 +551,7 @@ def blast_contigs(inputs, outdir, out_name, threads, identity, length):
     :return: BLASTn results.
     :rtype: pd.DataFrame
     """
-    log.info('Aligning contigs to reference sequences...')
+    log.info('BLASTing contigs to reference sequences...')
     log_dir = os.path.join(outdir, 'logs')
     os.makedirs(log_dir, exist_ok=True)
 
@@ -627,6 +632,59 @@ def blast_contigs(inputs, outdir, out_name, threads, identity, length):
         f.write('\n')
 
     return analysis_summary
+
+
+def filter_scaffold_blast_results(blast_results):
+    """
+    A single reference sequence is chosen for each segment scaffold.
+
+    First, the bitscores of all alignments between a scaffold and a reference sequence
+    are summed. The bitscore sum is calculated for each scaffold-reference
+    sequence pairing. The reference sequence giving the highest bitscore sum is
+    selected for each scaffold, with ties being broken by using the first
+    alphabetically. Once the best-matching reference sequence has been selected for
+    each segment scaffold, all other alignments are discarded.
+
+    :param blast_results: BLASTn results.
+    :type blast_results: pd.DataFrame
+    :return: Filtered BLASTn results.
+    :rtype: pd.DataFrame
+    """
+    log.info('Filtering scaffold alignments...')
+
+    # Remove reversed alignments (they should be artefactual at this point).
+    # check number of reversed alignments
+    num_reversed_alignments = len(blast_results[blast_results['send'] < blast_results['sstart']])
+    log.info(f'Found {num_reversed_alignments} reversed alignments.')
+    log.info('Removing reversed alignments...')
+    blast_results = blast_results[blast_results['send'] > blast_results['sstart']]
+
+    #Annotate scaffold seqs with segment.
+    query_annots = blast_results[['qseqid']].drop_duplicates()
+    get_segment = lambda row: row['qseqid'].split('|')[1].split('_')[0]
+    query_annots['segment'] = query_annots.apply(get_segment, axis=1)
+    blast_results = pd.merge(blast_results, query_annots, on='qseqid')
+
+    # Find best-matching reference sequence for each segment.
+    cols = ['segment', 'sseqid', 'bitscore']
+    group_cols = ['segment', 'sseqid']
+    combo_scores = blast_results[cols].groupby(group_cols).sum().reset_index()
+    cols = ['segment', 'bitscore']
+    group_cols = ['segment']
+    max_scores = combo_scores[cols].groupby(group_cols).max().reset_index()
+    merge_cols = ['segment', 'bitscore']
+    max_scores = pd.merge(max_scores, combo_scores, on=merge_cols)
+    cols = ['segment', 'sseqid']
+    group_cols = ['segment']
+    first_alpha = max_scores[cols].groupby(group_cols).min().reset_index()
+    merge_cols = ['segment', 'sseqid']
+    blast_results = pd.merge(blast_results, first_alpha, on=merge_cols)
+    for segment in blast_results['segment'].unique():
+        segment_results = blast_results[blast_results['segment']==segment]
+        ref_seq = segment_results['sseqid'].values[0]
+        log.info(f'Selected reference sequence for segment {segment}: {ref_seq}')
+
+    return blast_results
 
 
 def make_scaffold_seqs(inputs, outdir, out_name):
@@ -759,7 +817,7 @@ def make_scaffold_seqs(inputs, outdir, out_name):
         log.info(f'Wrote {contig_counter[segment]} contigs for segment {segment} to {contigs}')
         outputs[f'{segment}_contigs'] = os.path.abspath(contigs)
         # Generate multiple sequence alignments of trimmed/positioned contigs.
-        log.info(f'Aligning contigs for segment {segment}...')
+        log.info(f'Aligning contigs for segment {segment} with clustalw...')
         aligned_contigs = os.path.join(outdir, f'{segment}_contigs.afa')
 
         if contig_counter[segment] > 1:
@@ -925,16 +983,224 @@ def blast_scaffolds(inputs, outdir, out_name, threads):
     if num_blast_results == 0:
         log.error(f'No scaffolds aligned to reference sequences! '
                   f'Aborting analysis.\n')
-        if collect_garbage:
-            garbage_collection(out_name)
         error_code = 13
-        exit(error_code)
-    else:
-        log.info('Scaffolds aligned to reference sequences.')
-        log.info(f'Found {num_blast_results} total matches.')
-        for segment in blast_results['qseqid'].unique():
-            segment_results = blast_results[blast_results['qseqid']==segment]
-            ref_seq = segment_results['sseqid'].values[0]
-            log.info(f'Selected reference sequence for segment {segment}: {ref_seq}')
+        analysis_summary['return_code'] = error_code
+        analysis_summary['error_message'] = error_messages_by_code[error_code]
+        return analysis_summary
+    
+    log.info('Scaffolds aligned to reference sequences.')
+    log.info(f'Found {num_blast_results} total matches.')
+    for segment in blast_results['qseqid'].unique():
+        segment_results = blast_results[blast_results['qseqid']==segment]
+        ref_seq = segment_results['sseqid'].values[0]
+        log.info(f'Selected reference sequence for segment {segment}: {ref_seq}')
 
-    return blast_results
+    filtered_blast_results = filter_scaffold_blast_results(blast_results)
+    num_filtered_blast_results = len(filtered_blast_results)
+    log.info(f'Remaining scaffold alignments after filtering: {num_filtered_blast_results}.')
+    filtered_blast_output = os.path.join(outdir, f'{out_name}_scaffolds_blast_filtered.tsv')
+    filtered_blast_results.to_csv(filtered_blast_output, sep='\t', index=False)
+    log.info(f'Wrote filtered scaffold alignments to {filtered_blast_output}')
+    
+    timestamp_analysis_complete = datetime.datetime.now().isoformat()
+
+    outputs = {
+        'all_scaffold_blast_results': os.path.abspath(blast_output),
+        'filtered_scaffold_blast_results': os.path.abspath(filtered_blast_output),
+    }
+    analysis_summary['process_name'] = process_name
+    analysis_summary['timestamp_analysis_complete'] = timestamp_analysis_complete
+    analysis_summary['return_code'] = return_code
+    analysis_summary['outputs'] = outputs
+
+    return analysis_summary
+
+
+
+def make_mapping_refs(inputs, outdir, out_name):
+    """
+    Mapping references are created for each genome segment. These consist of
+    the scaffold for that segment, with all Ns in the scaffold filled-in using
+    the corresponding positions from that scaffold's best-matching reference
+    sequence.
+
+    :param inputs: Dictionary of input files, with keys 'filtered_scaffold_blast_results' and 'database'.
+    :type inputs: dict
+    :param outdir: Path to the output directory.
+    :type outdir: Path
+    :param out_name: Name used for outputs.
+    :type out_name: str
+  
+    """
+    log.info('Creating mapping references...')
+    
+    filtered_scaffold_blast_results_path = inputs.get('filtered_scaffold_blast_results', None)
+    blast_results = pd.read_csv(filtered_scaffold_blast_results_path, sep='\t', na_filter=False)
+    db = inputs.get('database', None)
+    db = os.path.abspath(db)
+    
+    # Create dict with best-matching ref seq for each segment.
+    sseqids = blast_results['sseqid'].unique()
+    best_ref_seqs = {seq_name: '' for seq_name in sseqids}
+    with open(db, 'r') as input_file:
+        for line in input_file:
+            if line[0] == '>':
+                header = line.strip()[1:]
+            elif header in best_ref_seqs:
+                best_ref_seqs[header] += line.strip()
+
+    # Create mapping ref for each segment.
+    def make_map_ref(data_frame):
+        data_frame = data_frame.sort_values(by=['sstart', 'send'],
+                                            ascending=[True, False])
+        ref_seq = best_ref_seqs[data_frame['sseqid'].min()]
+        last_position = 0
+        seq = ''
+        for index, row in data_frame.iterrows():
+            if row['sstart'] > last_position:
+                seq += ref_seq[last_position:row['sstart'] - 1]
+            if row['send'] > last_position:
+                qseq = row['qseq'].upper()
+                sseq = row['sseq'].upper()
+                if row['sstart'] <= last_position:
+                    start = (last_position - row['sstart']) + 1
+                    qseq = qseq[start:]
+                    sseq = sseq[start:]
+                for qbase, sbase in zip(qseq, sseq):
+                    if qbase in 'ATGC':
+                        seq += qbase
+                    else:
+                        seq += sbase
+                last_position = row['send']
+        seq += ref_seq[last_position:].upper()
+        seq = seq.replace('-', '')
+        return seq
+
+    cols = ['sseqid', 'sstart', 'send', 'qseq', 'sseq']
+    group_cols = ['sseqid']
+    blast_results = blast_results[cols]
+    blast_results = blast_results.groupby(group_cols).apply(make_map_ref)
+    blast_results = blast_results.reset_index()
+    blast_results.columns = ['sseqid', 'mapping_seq']
+    # Annotate segment and subtype.
+    get_segment = lambda row: row['sseqid'].split('|')[2].split('_')[0]
+    blast_results['segment'] = blast_results.apply(get_segment, axis=1)
+    get_subtype = lambda row: row['sseqid'].split('|')[3].split('_')[0]
+    blast_results['subtype'] = blast_results.apply(get_subtype, axis=1)
+
+    # Write mapping refs to FASTA.
+    segment_order = 'PB2 PB1 PA HA NP NA M NS'.split(' ')
+    get_segment_order = lambda row: segment_order.index(row['segment'])
+    blast_results['sort'] = blast_results.apply(get_segment_order, axis=1)
+    blast_results = blast_results.sort_values(by='sort')
+
+    mapping_refs_path = os.path.join(outdir, f'{out_name}_mapping_refs.fa')
+    with open(mapping_refs_path, 'w') as f:
+        num_refs = 0
+        for index, row in blast_results.iterrows():
+            num_refs += 1
+            accession, ref_name, segment, subtype = row['sseqid'].split('|')[:4]
+            accession = accession.lstrip('>')
+            ref_name = ref_name.replace('(', '|').replace(')', '')
+            header = f'>{out_name}|{segment}|{subtype}|{accession}|{ref_name}'
+            seq = row['mapping_seq']
+            f.write(header + '\n')
+            f.write(seq + '\n')
+
+    log.info(f'Wrote {num_refs} mapping references to {mapping_refs_path}')
+
+    return mapping_refs_path
+
+
+def map_reads(inputs, outdir, out_name, min_qual):
+    """
+    Normalized, downsampled reads (from normalize_depth analysis stage) are mapped to the
+    mapping references (produced by make_mapping_refs func) using BWA mem. The alignment
+    is filtered to retain only paired reads, then sorted and indexed.
+
+    :param inputs: Dictionary of input files, with keys 'normalized_reads_fwd', 'normalized_reads_rev' and 'mapping_refs'.
+    :type inputs: dict
+    :param outdir: Path to the output directory.
+    :type outdir: Path
+    :param out_name: Name used for outputs.
+    :type out_name: str
+    :param min_qual: Minimum mapping quality.
+    :type min_qual: int
+    """
+    log.info('Mapping reads to references...')
+    log_dir = os.path.join(outdir, 'logs')
+    os.makedirs(log_dir, exist_ok=True)
+    timestamp_analysis_start = datetime.datetime.now().isoformat()
+
+    analysis_summary = {
+        'timestamp_analysis_start': timestamp_analysis_start,
+        'inputs': inputs,
+    }
+    
+    mapping_refs_path = make_mapping_refs(inputs, outdir, out_name)
+
+    terminal_command = (f'bwa index {mapping_refs_path}')
+    process_name = 'bwa_index'
+    error_code = 14
+    return_code = run(terminal_command, outdir, out_name, process_name, error_code)
+    if return_code != 0:
+        log.error(f'Error running BWA index (Exit status: {return_code})')
+        analysis_summary['return_code'] = error_code
+        analysis_summary['error_message'] = error_messages_by_code[error_code]
+        return analysis_summary
+
+    fwd_reads = inputs.get('normalized_reads_fwd', None)
+    rev_reads = inputs.get('normalized_reads_rev', None)
+    alignment_path = os.path.join(outdir, f'{out_name}_alignment.sam')
+    terminal_command = (f'bwa mem {mapping_refs_path} {fwd_reads} {rev_reads} '
+                        f'> {alignment_path}')
+    process_name = 'bwa_mem'
+    error_code = 15
+    return_code = run(terminal_command, outdir, out_name, process_name, error_code)
+    if return_code != 0:
+        log.error(f'Error running BWA mem (Exit status: {return_code})')
+        analysis_summary['return_code'] = error_code
+        analysis_summary['error_message'] = error_messages_by_code[error_code]
+        return analysis_summary
+
+    filtered_alignment_path = os.path.join(outdir, f'{out_name}_alignment.bam')
+    samtools_filter_flags = '2828'
+    log.info(f'Filtering alignment with samtools flags: {samtools_filter_flags}.')
+    log.info('Removing unmapped reads, secondary alignments, and supplementary alignments.')
+    log.info(f'Minimum mapping quality: {min_qual}')
+    terminal_command = (f'samtools view -f 1 -F {samtools_filter_flags} -q {min_qual} '
+                        f'-h {alignment_path} | samtools sort -o {filtered_alignment_path}')
+    process_name = 'samtools_view'
+    error_code = 16
+    return_code = run(terminal_command, outdir, out_name, process_name, error_code)
+    if return_code != 0:
+        log.error(f'Error running samtools view (Exit status: {return_code})')
+        analysis_summary['return_code'] = error_code
+        analysis_summary['error_message'] = error_messages_by_code[error_code]
+        return analysis_summary
+
+    log.info(f'Indexing alignment...')
+    terminal_command = (f'samtools index {filtered_alignment_path}')
+    process_name = 'samtools_index'
+    error_code = 17
+    return_code = run(terminal_command, outdir, out_name, process_name, error_code)
+    if return_code != 0:
+        log.error(f'Error running samtools index (Exit status: {return_code})')
+        analysis_summary['return_code'] = error_code
+        analysis_summary['error_message'] = error_messages_by_code[error_code]
+        return analysis_summary
+
+    log.info(f'Wrote alignment to {filtered_alignment_path}')
+
+    outputs = {
+        'mapping_refs': os.path.abspath(mapping_refs_path),
+        'alignment': os.path.abspath(filtered_alignment_path),
+        'alignment_index': os.path.abspath(filtered_alignment_path + '.bai'),
+    }
+    timestamp_analysis_complete = datetime.datetime.now().isoformat()
+    analysis_summary['process_name'] = 'map_reads'
+    analysis_summary['outputs'] = outputs
+    analysis_summary['return_code'] = return_code
+    analysis_summary['timestamp_analysis_complete'] = timestamp_analysis_complete
+
+    return analysis_summary
