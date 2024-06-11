@@ -36,6 +36,8 @@ error_messages_by_code = {
     14: 'Error running ClustalW.',
     15: 'Error generating scaffold sequences.',
     16: 'Error running BLASTn.',
+    17: 'No contigs aligned to reference sequences.',
+    18: 'Multiple subtypes detected for segment.',
 }
 
 
@@ -1204,3 +1206,277 @@ def map_reads(inputs, outdir, out_name, min_qual):
     analysis_summary['timestamp_analysis_complete'] = timestamp_analysis_complete
 
     return analysis_summary
+
+
+def mask_ambig_low_cov(
+        variants_raw_path,
+        outdir,
+        out_name,
+        params,
+):
+    """
+    The FreeBayes VCF output is parsed, analyzing total read depth and
+    variant read depth at each position.
+
+    This allows positions to be masked for low coverage based on the read
+    depth considered by FreeBayes (which could be lower than the read depth
+    in the BAM depending on how FreeBayes applies it mapping quality and
+    base quality filters).
+
+    This also allows positions to be masked as ambiguous when the number of
+    reads differing from the reference exceeds a threshold, but is not sufficient
+    enough to confidently call as a specific variant.
+
+    :param variants_raw_path: Path to the raw FreeBayes VCF output.
+    :type variants_raw_path: str
+    :param outdir: Path to the output directory.
+    :type outdir: str
+    :param out_name: Name used for outputs.
+    :type out_name: str
+    :param params: Dictionary of parameters, with keys 'min_depth', 'min_qual', 'vaf_call', 'vaf_ambig'.
+    :type params: dict
+    :return: Summary of the analysis.
+    
+    """
+    log.info('Masking ambiguous and low coverage positions...')
+    
+    # Open input/output files and initialize dicts.
+    variants_raw = open(variants_raw_path, 'r')
+    variants_filtered_path = os.path.join(outdir, f'{out_name}_variants.vcf')
+    variants_filtered = open(variants_filtered_path, 'w')
+    depth_of_cov_path = os.path.join(outdir, f'{out_name}_depth_of_cov_freebayes.tsv')
+    depth_of_cov = open(depth_of_cov_path, 'w')
+    segments = 'PB2 PB1 PA HA NP NA M NS'.split(' ')
+    low_cov_pos = {segment: set() for segment in segments}
+    ambig_pos = {segment: set() for segment in segments}
+    variant_pos = {segment: set() for segment in segments}
+    segment_name, segment_length = dict(), {None: 0}
+    segment_length[None] = 0
+
+    # Parse header
+    line = variants_raw.readline()
+    while line != '' and line[0] == '#':
+        variants_filtered.write(line)
+        if line[:10] == '##contig=<':
+            name = line.strip().split('<ID=')[1].split(',length=')[0]
+            segment = name.split('|')[1]
+            length = int(line.strip().split(',length=')[1].split('>')[0])
+            segment_name[segment] = name
+            segment_length[segment] = length
+        line = variants_raw.readline()
+
+    # Parse body
+    last_segment = None
+    last_position = 0
+    min_depth = params['min_depth']
+    min_qual = params['min_mapping_quality']
+    vaf_call = params['variant_threshold_calling']
+    vaf_ambig = params['variant_threshold_masking']
+    while line != '':
+        fields = line.strip().split('\t')
+        fields = (fields[0], fields[1], fields[3], fields[4], fields[5],
+                  fields[8], fields[9])
+        name, position, ref, alt, qual, keys, values = fields
+        segment = name.split('|')[1]
+        if segment != last_segment:
+            if last_position < segment_length[last_segment]:
+                for p in range(last_position + 1,
+                               segment_length[last_segment] + 1):
+                    low_cov_pos[last_segment].add(p)
+                    depth_of_cov_line = [name, str(p), '0']
+                    depth_of_cov_line = '\t'.join(depth_of_cov_line)
+                    depth_of_cov.write(depth_of_cov_line + '\n')
+            last_position = 0
+        last_segment = segment
+        position = int(position)
+        if position != last_position + 1:
+            for p in range(last_position + 1, position):
+                low_cov_pos[segment].add(p)
+                depth_of_cov_line = [name, str(p), '0']
+                depth_of_cov_line = '\t'.join(depth_of_cov_line)
+                depth_of_cov.write(depth_of_cov_line + '\n')
+        qual = float(qual)
+        info = {k: v for k, v in zip(keys.split(':'), values.split(':'))}
+        if 'DP' in info and info['DP'].isnumeric():
+            total_depth = int(info['DP'])
+        else:
+            total_depth = 0
+        if 'AO' in info:
+            alt_depths = tuple(int(i) if i.isnumeric() else 0
+                               for i in info['AO'].split(','))
+        else:
+            alt_depths = (0, )
+        max_alt_depth = max(alt_depths)
+        total_alt_depth = sum(alt_depths)
+        max_vaf = max_alt_depth / total_depth if total_depth > 0 else 0
+        total_vaf = total_alt_depth / total_depth if total_depth > 0 else 0
+        if all([qual >= min_qual, max_vaf >= vaf_call,
+                total_depth >= min_depth]):
+            variants_filtered.write(line)
+            variant_pos[segment].add(position)
+        position -= 1
+        for p in ref:
+            position += 1
+            depth_of_cov_line = [name, str(position), str(total_depth)]
+            depth_of_cov_line = '\t'.join(depth_of_cov_line)
+            depth_of_cov.write(depth_of_cov_line + '\n')
+            if total_depth < min_depth:
+                low_cov_pos[segment].add(position)
+            elif total_vaf >= vaf_ambig and max_vaf < vaf_call:
+                ambig_pos[segment].add(position)
+        last_position = position
+        line = variants_raw.readline()
+    if last_position < segment_length[last_segment]:
+        for p in range(last_position + 1, segment_length[last_segment] + 1):
+            low_cov_pos[last_segment].add(p)
+            depth_of_cov_line = [name, str(p), '0']
+            depth_of_cov_line = '\t'.join(depth_of_cov_line)
+            depth_of_cov.write(depth_of_cov_line + '\n')
+
+    # Close input/output files
+    variants_raw.close()
+    variants_filtered.close()
+    depth_of_cov.close()
+
+    # Convert sets of low cov positions into tuples representing zero-indexed
+    # spans of masked positions (start, end).
+    masked_pos = dict()
+    for segment in 'PB2 PB1 PA HA NP NA M NS'.split(' '):
+        masked_pos[segment] = low_cov_pos[segment].union(ambig_pos[segment])
+        masked_pos[segment] = sorted(masked_pos[segment])
+    spans = {segment: set() for segment in segments}
+    segments = [segment for segment in segments
+                if masked_pos[segment] != list()]
+    for segment in segments:
+        span_start = masked_pos[segment][0]
+        for pos_A, pos_B in zip(masked_pos[segment][:-1],
+                                masked_pos[segment][1:]):
+            if pos_B != pos_A + 1:
+                span_end = pos_A
+                spans[segment].add((span_start - 1, span_end - 1))
+                span_start = pos_B
+        span_end = masked_pos[segment][-1]
+        spans[segment].add((span_start - 1, span_end - 1))
+    spans = {segment: sorted(spans[segment]) for segment in segments}
+
+    # Write spans of low cov positions to TSV file for depth of coverage
+    # plots.
+    low_cov_path = os.path.join(outdir, f'{out_name}_low_cov.tsv')
+    with open(low_cov_path, 'w') as f:
+        for segment, segment_spans in spans.items():
+            for (start, end) in segment_spans:
+                line = [segment_name[segment], start, end]
+                line = '\t'.join(str(i) for i in line)
+                f.write(line + '\n')
+    log.info(f'Wrote low coverage positions to {low_cov_path}')
+
+    # Write ambiguous positions to TSV file.
+    ambig_path = os.path.join(outdir, f'{out_name}_ambig.tsv')
+    with open(ambig_path, 'w') as f:
+        for segment in 'PB2 PB1 PA HA NP NA M NS'.split(' '):
+            for position in ambig_pos[segment]:
+                line = [segment_name[segment], position]
+                line = '\t'.join(str(i) for i in line)
+                f.write(line + '\n')
+    log.info(f'Wrote ambiguous positions to {ambig_path}')
+
+    # Write variant positions to TSV file.
+    variants_tsv_path = os.path.join(outdir, f'{out_name}_variants.tsv')
+    with open(variants_tsv_path, 'w') as f:
+        for segment in 'PB2 PB1 PA HA NP NA M NS'.split(' '):
+            for position in variant_pos[segment]:
+                line = [segment_name[segment], position]
+                line = '\t'.join(str(i) for i in line)
+                f.write(line + '\n')
+    log.info(f'Wrote variant positions to {variants_tsv_path}')
+              
+    # Write spans of masked positions to BED file in BedGraph format.
+    masked_path = os.path.join(outdir, f'{out_name}_masked.bed')          
+    with open(masked_path, 'w') as f:
+        for segment, segment_spans in spans.items():
+            for (start, end) in segment_spans:
+                line = [segment_name[segment], start, end + 1, 0]
+                line = '\t'.join(str(i) for i in line)
+                f.write(line + '\n')
+    log.info(f'Wrote masked positions to {masked_path}')
+
+    return variants_filtered_path
+
+
+def call_variants(inputs, outdir, out_name, params):
+    """
+    FreeBayes is used to create a pileup and call variants from the
+    BAM file output (map_reads func).
+
+    :param inputs: Dictionary of input files, with keys 'mapping_refs' and 'alignment'.
+    :type inputs: dict
+    :param outdir: Path to the output directory.
+    :type outdir: Path
+    :param out_name: Name used for outputs.
+    :type out_name: str
+    :param min_qual: Minimum base quality.
+    :type min_qual: int
+    :param max_depth: Maximum read depth.
+    :type max_depth: int
+    :return: Summary of the analysis.
+    :rtype: dict
+    """
+    log.info('Calling variants...')
+    log_dir = os.path.join(outdir, 'logs')
+    os.makedirs(log_dir, exist_ok=True)
+
+    timestamp_analysis_start = datetime.datetime.now().isoformat()
+    analysis_summary = {
+        'timestamp_analysis_start': timestamp_analysis_start,
+        'inputs': inputs,
+    }
+
+    mapping_refs = inputs.get('mapping_refs', None)
+    filtered_alignment = inputs.get('alignment', None)
+
+    variants_raw_path = os.path.join(outdir, f'{out_name}_variants_raw.vcf')
+    min_qual = params.get('min_mapping_quality', 20)
+    max_depth = params.get('coverage_limit', 1000)
+
+    log.info(f'Minimum mapping quality: {min_qual}')
+    log.info(f'Minimum base quality: {min_qual}')
+    log.info(f'Maximum read depth: {max_depth}')
+    terminal_command = (f'freebayes -f {mapping_refs} {filtered_alignment} -p 1 '
+                        f'--limit-coverage {max_depth} '
+                        f'--min-mapping-quality {min_qual} '
+                        f'--min-base-quality {min_qual} --pooled-continuous '
+                        f'--report-monomorphic --haplotype-length 0 '
+                        f'--min-alternate-count 1 --min-alternate-fraction 0 '
+                        f'> {variants_raw_path}')
+    process_name = 'freebayes'
+    error_code = 18
+    return_code = run(terminal_command, outdir, out_name, process_name, error_code)
+    if return_code != 0:
+        log.error(f'Error running FreeBayes (Exit status: {return_code})')
+        analysis_summary['return_code'] = error_code
+        analysis_summary['error_message'] = error_messages_by_code[error_code]
+        return analysis_summary
+
+    log.info(f'Wrote raw variants to {variants_raw_path}')
+
+    variants_filtered_path = mask_ambig_low_cov(
+        variants_raw_path,
+        outdir,
+        out_name,
+        params,
+    )
+    outputs = {
+        'variants_raw': os.path.abspath(variants_raw_path),
+        'variants_filtered': os.path.abspath(variants_filtered_path),
+    }
+
+    analysis_summary['process_name'] = 'call_variants'
+    timestamp_analysis_complete = datetime.datetime.now().isoformat()
+    analysis_summary['timestamp_analysis_complete'] = timestamp_analysis_complete
+    analysis_summary['return_code'] = return_code
+    analysis_summary['outputs'] = outputs
+
+    return analysis_summary
+
+    
+    
