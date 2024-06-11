@@ -191,7 +191,6 @@ def main():
         shutil.copy(src_path, dest_path)
         log.info(f'Published log file: {log_file} -> {dest_path}')
 
-
     log.info(f'Analysis stage complete: {current_analysis_stage}')
 
 

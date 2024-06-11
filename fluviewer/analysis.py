@@ -310,25 +310,7 @@ def filter_contig_blast_results(blast_results, outdir, out_name, identity, lengt
     :return: Filtered BLASTn results.
     :rtype: pd.DataFrame
     """
-    log.info('Filtering contig alignments...')
-    total_num_blast_results = len(blast_results)
-
-    filtered_blast_results = blast_results[blast_results['pident'] >= identity]
-    filtered_blast_results = filtered_blast_results[filtered_blast_results['length'] >= length]
-    num_blast_results_after_identity_and_length_filter = len(filtered_blast_results)
-    log.info(f'Found {num_blast_results_after_identity_and_length_filter} matches with at least {identity}% identity and {length} bp alignment length.')
-
-    percent_blast_results_retained = num_blast_results_after_identity_and_length_filter / total_num_blast_results * 100
-    log.info(f'Retained {percent_blast_results_retained:.2f}% matches for further analysis.')
-
-    if len(filtered_blast_results) == 0:
-        log.error(f'No contigs aligned to reference sequences! Aborting analysis.')
-        error_code = 7
-        exit(error_code)
-
-    # Re-naming the filtered blast results to blast_results
-    # For compatibility with the rest of this function
-    blast_results = filtered_blast_results
+    log.info('Filtering contig BLAST alignments...')
 
     # 
     # Annotate each ref seq with its segment and subtype.
@@ -592,11 +574,28 @@ def blast_contigs(inputs, outdir, out_name, threads, identity, length):
     error_code = 6
     return_code = run(terminal_command, outdir, out_name, process_name, error_code)
 
-    blast_results = pd.read_csv(blast_output_path, sep='\t')
+    full_blast_results = pd.read_csv(blast_output_path, sep='\t')
 
-    total_num_blast_results = len(blast_results)
-    log.info('Contigs aligned to reference sequences.')
+    total_num_blast_results = len(full_blast_results)
+
+    if total_num_blast_results == 0:
+        log.error(f'No contigs aligned to reference sequences! Aborting analysis.')
+        error_code = 7
+        exit(error_code)
+
+    log.info('Contigs BLASTed against reference sequences.')
     log.info(f'Found {total_num_blast_results} total matches.')
+
+    blast_results = full_blast_results[full_blast_results['pident'] >= identity]
+    blast_results = blast_results[blast_results['length'] >= length]
+
+    identity_and_length_filtered_blast_output_path = os.path.join(outdir, f'{out_name}_contigs_blast_identity_and_length_filtered.tsv')
+    blast_results.to_csv(identity_and_length_filtered_blast_output_path, sep='\t', index=False)
+    num_blast_results_after_identity_and_length_filter = len(blast_results)
+    log.info(f'Found {num_blast_results_after_identity_and_length_filter} matches with at least {identity}% identity and {length} bp alignment length.')
+
+    percent_blast_results_retained = num_blast_results_after_identity_and_length_filter / total_num_blast_results * 100
+    log.info(f'Retained {percent_blast_results_retained:.2f}% matches for further analysis.')
 
     filtered_blast_results = filter_contig_blast_results(blast_results, outdir, out_name, identity, length)
 
@@ -617,6 +616,7 @@ def blast_contigs(inputs, outdir, out_name, threads, identity, length):
 
     outputs = {
         'all_contig_blast_results': os.path.abspath(blast_output_path),
+        'identity_and_length_filtered_contig_blast_results': os.path.abspath(identity_and_length_filtered_blast_output_path),
         'filtered_contig_blast_results': os.path.abspath(filtered_blast_output_path),
     }
 
@@ -651,7 +651,7 @@ def filter_scaffold_blast_results(blast_results):
     :return: Filtered BLASTn results.
     :rtype: pd.DataFrame
     """
-    log.info('Filtering scaffold alignments...')
+    log.info('Filtering scaffold BLAST alignments...')
 
     # Remove reversed alignments (they should be artefactual at this point).
     # check number of reversed alignments
@@ -987,7 +987,7 @@ def blast_scaffolds(inputs, outdir, out_name, threads):
         analysis_summary['error_message'] = error_messages_by_code[error_code]
         return analysis_summary
 
-    blast_results = pd.read_csv(blast_output, names=cols, sep='\t')
+    blast_results = pd.read_csv(blast_output, names=cols, sep='\t', na_filter=False)
     num_blast_results = len(blast_results)
     if num_blast_results == 0:
         log.error(f'No scaffolds aligned to reference sequences! '
@@ -999,12 +999,9 @@ def blast_scaffolds(inputs, outdir, out_name, threads):
     
     log.info('Scaffolds aligned to reference sequences.')
     log.info(f'Found {num_blast_results} total matches.')
-    for segment in blast_results['qseqid'].unique():
-        segment_results = blast_results[blast_results['qseqid']==segment]
-        ref_seq = segment_results['sseqid'].values[0]
-        log.info(f'Selected reference sequence for segment {segment}: {ref_seq}')
 
     filtered_blast_results = filter_scaffold_blast_results(blast_results)
+
     num_filtered_blast_results = len(filtered_blast_results)
     log.info(f'Remaining scaffold alignments after filtering: {num_filtered_blast_results}.')
     filtered_blast_output = os.path.join(outdir, f'{out_name}_scaffolds_blast_filtered.tsv')
@@ -1095,6 +1092,7 @@ def make_mapping_refs(inputs, outdir, out_name):
     blast_results = blast_results.groupby(group_cols).apply(make_map_ref)
     blast_results = blast_results.reset_index()
     blast_results.columns = ['sseqid', 'mapping_seq']
+
     # Annotate segment and subtype.
     get_segment = lambda row: row['sseqid'].split('|')[2].split('_')[0]
     blast_results['segment'] = blast_results.apply(get_segment, axis=1)

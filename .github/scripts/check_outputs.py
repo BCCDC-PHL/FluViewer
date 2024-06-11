@@ -44,7 +44,12 @@ def check_expected_files_exist(output_dirs, sample_ids, output_file_mapping_by_s
     return expected_file_checks
 
 
-def check_expected_md5sums_match(output_dirs, sample_ids, output_file_mapping_by_sample_id):
+def check_expected_md5sums_match(
+        output_dirs,
+        sample_ids,
+        output_file_mapping_by_sample_id,
+        files_with_header_added_in_origin
+):
     """
     Check that the expected md5sums match the actual md5sums in the output directory.
 
@@ -54,6 +59,9 @@ def check_expected_md5sums_match(output_dirs, sample_ids, output_file_mapping_by
     :type sample_ids: List[str]
     :param output_file_mapping_by_sample_id: Dictionary with keys as sample IDs
                                                 and values as dictionaries.
+    :type output_file_mapping_by_sample_id: Dict[str, Dict[str, Dict[str, str]]]
+    :param files_with_header_added_in_origin: List of file types for which the header is added in the origin version of the file
+    :type files_with_header_added_in_origin: List[str]
     :return: List of dictionaries with keys ['sample_id', 'file_type', 'upstream_path', 'origin_path', 'upstream_md5sum', 'origin_md5sum', 'md5sums_match']
     """
     expected_md5sum_checks = []
@@ -61,10 +69,20 @@ def check_expected_md5sums_match(output_dirs, sample_ids, output_file_mapping_by
         for file_type, paths_by_pipeline in output_files.items():
             upstream_path = os.path.join(output_dirs['upstream'], paths_by_pipeline['upstream'])
             origin_path = os.path.join(output_dirs['origin'], paths_by_pipeline['origin'])
-            with open(upstream_path, 'rb') as f:
-                upstream_md5sum = hashlib.md5(f.read()).hexdigest()
-            with open(origin_path, 'rb') as f:
-                origin_md5sum = hashlib.md5(f.read()).hexdigest()
+            upstream_md5sum = None
+            origin_md5sum = None
+            with open(upstream_path, 'r') as f:
+                upstream_md5sum = hashlib.md5(f.read().encode()).hexdigest()
+            with open(origin_path, 'r') as f:
+                # skip header when calculating checksum for
+                # files where header is added in the origin version
+                
+                if file_type in files_with_header_added_in_origin:
+                    f.readline()
+                
+                origin_md5sum = hashlib.md5(f.read().encode()).hexdigest()
+                    
+            
             expected_md5sum_check = {
                 'sample_id': sample_id,
                 'file_type': file_type,
@@ -87,6 +105,16 @@ def main(args):
     # TODO: read this from the 'reads_to_simulate.csv' file
     sample_ids = [
         'MK58361X-H3N2'
+    ]
+    analysis_stages = [
+        '00_normalize_depth',
+        '01_assemble_contigs',
+        '02_blast_contigs',
+        '03_scaffolding',
+        '04_read_mapping',
+        '05_variant_calling',
+        '06_report_variants',
+        '07_summary_reporting'
     ]
     output_file_mapping_by_sample_id = {}
     for sample_id in sample_ids:
@@ -161,6 +189,11 @@ def main(args):
                                                                 "analysis_by_stage",
                                                                 "00_normalize_depth",
                                                                 f"{sample_id}-normalized_R2.fastq.gz")},
+            'assembly_contigs':       {"upstream": os.path.join(sample_id, "spades_output", "contigs.fasta"),
+                                        "origin":   os.path.join(sample_id,
+                                                                 "analysis_by_stage",
+                                                                 "01_assemble_contigs",
+                                                                 f"{sample_id}_contigs.fasta")},
             'alignment_sam':          {"upstream": os.path.join(sample_id, "alignment.sam"),
                                        "origin":   os.path.join(sample_id,
                                                                 "analysis_by_stage",
@@ -176,6 +209,11 @@ def main(args):
                                                                 "analysis_by_stage",
                                                                 "02_blast_contigs",
                                                                 f"{sample_id}_contigs_blast.tsv")},
+            'mapping_refs':           {"upstream": os.path.join(sample_id, f"{sample_id}_mapping_refs.fa"),
+                                        "origin":   os.path.join(sample_id,
+                                                                 "analysis_by_stage",
+                                                                 "04_read_mapping",
+                                                                 f"{sample_id}_mapping_refs.fa")},
             'depth_of_cov_freebayes': {"upstream": os.path.join(sample_id, "depth_of_cov_freebayes.tsv"),
                                        "origin":   os.path.join(sample_id,
                                                                 "analysis_by_stage",
@@ -250,6 +288,11 @@ def main(args):
         'alignment_sam',
         'pileup_vcf',
     ]
+    files_with_header_added_in_origin = [
+        'contigs_blast',
+        'scaffolds_blast_tsv',
+        
+    ]
     output_file_mapping_by_sample_id_for_md5sum_check = {}
     for sample_id, output_files in output_file_mapping_by_sample_id.items():
         for file_type, paths_by_pipeline in output_files.items():
@@ -262,14 +305,18 @@ def main(args):
     expected_md5sums_match_checks = check_expected_md5sums_match(
         pipeline_outdirs,
         sample_ids,
-        output_file_mapping_by_sample_id_for_md5sum_check
+        output_file_mapping_by_sample_id_for_md5sum_check,
+        files_with_header_added_in_origin
     )
+    def get_analysis_stage_number_from_origin_path(origin_path):
+        return origin_path.split(os.sep)[-2]
+    expected_md5sums_match_checks_sorted = sorted(expected_md5sums_match_checks, key=lambda x: get_analysis_stage_number_from_origin_path(x['origin_path']))
     
     expected_md5sums_match_output_path = os.path.join(args.outdir, "check_md5sums_match.csv")
     with open(expected_md5sums_match_output_path, 'w') as f:
         writer = csv.DictWriter(f, fieldnames=expected_md5sums_match_checks[0].keys(), extrasaction='ignore')
         writer.writeheader()
-        for check in expected_md5sums_match_checks:
+        for check in expected_md5sums_match_checks_sorted:
             writer.writerow(check)
     all_expected_md5sums_match = all([check['md5sums_match'] for check in expected_md5sums_match_checks])
     
