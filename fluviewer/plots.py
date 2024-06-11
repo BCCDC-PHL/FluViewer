@@ -1,4 +1,5 @@
 import os
+import datetime
 
 from math import ceil, log10
 
@@ -8,40 +9,52 @@ import matplotlib.pyplot as plt
 
 import fluviewer.logging
 
-import fluviewer.fluviewer
+from fluviewer.analysis import run
 
 log = fluviewer.logging.get_logger(__name__, 'info')
 
-def make_plots(outdir, out_name, collect_garbage):
+def make_plots(inputs, outdir, out_name):
     """
     Generate depth of coverage plots for each segment.
 
+    :param inputs: dictionary of input files.
+    :type inputs: dict
     :param outdir: Path to the output directory.
     :type outdir: str
     :param out_name: Name used for outputs.
     :type out_name: str
-    :param collect_garbage: Whether to remove intermediate files.
     """
     log.info('Making depth of coverage plots...')
+    log_dir = os.path.join(outdir, out_name)
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+
+    timestamp_analysis_start = datetime.datetime.now().isoformat()
+    analysis_summary = {
+        'timestamp_analysis_start': timestamp_analysis_start,
+        'inputs': inputs,
+    }
 
     # Get depth of coverage using samtools.
-    filtered_alignment = os.path.join(outdir, out_name, f'{out_name}_alignment.bam')
-    depth_of_cov = os.path.join(outdir, out_name, 'depth_of_cov_samtools.tsv')
+    filtered_alignment = inputs['alignment']
+    depth_of_cov = os.path.join(outdir, f'{out_name}_depth_of_cov_samtools.tsv')
     terminal_command = (f'samtools depth {filtered_alignment} > {depth_of_cov}')
     process_name = 'samtools_depth'
     error_code = 24
-    fluviewer.fluviewer.run(terminal_command, outdir, out_name, process_name, error_code, collect_garbage)
+    return_code = run(terminal_command, outdir, out_name, process_name, error_code)
+    if return_code != 0:
+        log.error('Error running samtools depth.')
+
     cols = ['seq_name', 'position', 'depth_samtools']
     samtools_data = pd.read_csv(depth_of_cov, sep='\t', names=cols)
 
     # Get depth of coverage from FreeBayes.
-    depth_of_cov = os.path.join(outdir, out_name, 'depth_of_cov_freebayes.tsv')
+    depth_of_cov = inputs['depth_of_cov_freebayes']
     cols = ['seq_name', 'position', 'depth_freebayes']
     freebayes_data = pd.read_csv(depth_of_cov, sep='\t', names=cols)
 
     # Merge samtools and freebayes data.
-    data = pd.merge(samtools_data, freebayes_data, on=['seq_name', 'position'],
-                    how='left')
+    data = pd.merge(samtools_data, freebayes_data, on=['seq_name', 'position'], how='left')
 
     # Annotate with segment.
     get_segment = lambda row: row['seq_name'].split('|')[1]
@@ -76,25 +89,34 @@ def make_plots(outdir, out_name, collect_garbage):
         ax.set_yticks(y_ticks)
         ax.set_title(segment)
         ax.axvspan(segment_data['position'].max(), max_position, color='grey')
-        with open(os.path.join(outdir, out_name, 'low_cov.tsv'), 'r') as input_file:
+        low_cov_path = inputs['low_coverage_positions']
+        with open(low_cov_path, 'r') as input_file:
             for line in input_file:
                 seq_name, start, stop = line.strip().split('\t')
                 if seq_name.split('|')[1] == segment:
                     for position in range(int(start), int(stop) + 1):
                         ax.axvline(position, color='red', alpha = 0.5)
-        with open(os.path.join(outdir, out_name, 'ambig.tsv'), 'r') as input_file:
+        ambig_path = inputs['ambiguous_positions']
+        with open(ambig_path, 'r') as input_file:
             for line in input_file:
                 seq_name, position = line.strip().split('\t')
                 if seq_name.split('|')[1] == segment:
                     ax.axvline(int(position), color='orange', alpha = 0.5)
-        with open(os.path.join(outdir, out_name, 'variants.tsv'), 'r') as input_file:
+        variant_positions_path = inputs['variant_positions']
+        with open(variant_positions_path, 'r') as input_file:
             for line in input_file:
                 seq_name, position = line.strip().split('\t')
                 if seq_name.split('|')[1] == segment:
                     ax.axvline(int(position), color='blue', alpha = 0.5)        
     plt.tight_layout()
-    plots = os.path.join(outdir, out_name, f'{out_name}_depth_of_cov.png')
+    plots = os.path.join(outdir, f'{out_name}_depth_of_cov.png')
     plt.savefig(plots, dpi=400)
     plt.close()
+
+    outputs = {'depth_of_cov_plots': plots}
+    analysis_summary['outputs'] = outputs
+    analysis_summary['timestamp_analysis_complete'] = datetime.datetime.now().isoformat()
     
     log.info(f'Depth of coverage plots saved to {plots}')
+
+    return analysis_summary

@@ -8,7 +8,7 @@ import fluviewer.logging
 log = fluviewer.logging.get_logger(__name__, 'info')
 
 
-def check_database(db, outdir, out_name, collect_garbage):
+def check_database(db, outdir, out_name):
     """
     Checks the contents of the provided reference sequence database to
     ensure proper header formatting and unambiguous sequences.
@@ -112,8 +112,7 @@ def check_database(db, outdir, out_name, collect_garbage):
         terminal_command = f'makeblastdb -in {db} -dbtype nucl'
         process_name = 'makeblastdb_contigs'
         error_code = 5
-        try:
-            run(terminal_command, outdir, out_name, process_name, error_code, collect_garbage)
-        except Exception as e:
-            log.error(f'Error creating BLAST database: at {os.path.dirname(db)} {e}')
-            exit(1)    
+        return_code = run(terminal_command, outdir, out_name, process_name, error_code)
+        if return_code != 0:
+            log.error('Error running makeblastdb.')
+            exit(1)

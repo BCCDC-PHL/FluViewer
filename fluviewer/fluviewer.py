@@ -18,6 +18,7 @@ from . import __version__
 from . import cli_args
 from . import database
 from . import analysis
+from . import report
 from . import plots
 import fluviewer.logging
 
@@ -76,7 +77,6 @@ def main():
         args.database,
         args.outdir,
         args.output_name,
-        args.disable_garbage_collection
     )    
 
     analysis_stages = [
@@ -84,7 +84,6 @@ def main():
         'assemble_contigs',
         'blast_contigs',
         'scaffolding',
-        'blast_scaffolds',
         'read_mapping',
         'variant_calling',
         'consensus_calling',
@@ -341,6 +340,7 @@ def main():
     outputs_to_publish = {
         'variants_raw': os.path.join(args.outdir),
         'variants_filtered': os.path.join(args.outdir),
+        'masked_positions': os.path.join(args.outdir),
     }
     for output_name, output_dir in outputs_to_publish.items():
         src_path = call_variants_analysis_summary['outputs'][output_name]
@@ -349,9 +349,6 @@ def main():
         log.info(f'Published output: {output_name} -> {dest_path}')
 
     log.info(f'Analysis stage complete: {current_analysis_stage}')
-    print(json.dumps(call_variants_analysis_summary, indent=4))
-    exit(0)
-
 
     #
     # Stage 6: Consensus calling.
@@ -363,6 +360,7 @@ def main():
     current_analysis_stage_inputs = {
         'variants_filtered': call_variants_analysis_summary['outputs']['variants_filtered'],
         'mapping_refs': map_reads_analysis_summary['outputs']['mapping_refs'],
+        'masked_positions': call_variants_analysis_summary['outputs']['masked_positions'],
     }
     log.info(f'Beginning analysis stage: {current_analysis_stage}')
 
@@ -387,205 +385,63 @@ def main():
 
     log.info(f'Analysis stage complete: {current_analysis_stage}')
 
+    #
+    # Stage 7: Summary reporting and plotting.
+    #
     current_analysis_stage = 'summary_reporting'
     current_analysis_stage_index = analysis_stages.index(current_analysis_stage)
+    current_analysis_stage_outdir = os.path.join(args.outdir, 'analysis_by_stage', f'{current_analysis_stage_index:02}_{current_analysis_stage}')
+    current_analysis_stage_outdir = os.path.abspath(current_analysis_stage_outdir)
+    current_analysis_stage_inputs = {
+        'scaffolds': make_scaffold_seqs_analysis_summary['outputs']['scaffolds'],
+        'mapping_refs': map_reads_analysis_summary['outputs']['mapping_refs'],
+        'alignment': map_reads_analysis_summary['outputs']['alignment'],
+        'depth_of_cov_freebayes': call_variants_analysis_summary['outputs']['depth_of_cov_freebayes'],
+        'low_coverage_positions': call_variants_analysis_summary['outputs']['low_coverage_positions'],
+        'ambiguous_positions': call_variants_analysis_summary['outputs']['ambiguous_positions'],
+        'variant_positions': call_variants_analysis_summary['outputs']['variant_positions'],
+        'consensus_seqs': make_consensus_seqs_analysis_summary['outputs']['consensus_seqs'],
+    }
     log.info(f'Beginning analysis stage: {current_analysis_stage}')
     
-    write_report(
-        args.outdir,
+    reporting_summary = report.write_report(
+        current_analysis_stage_inputs,
+        current_analysis_stage_outdir,
         args.output_name,
-        args.disable_garbage_collection,
     )
 
-    plots.make_plots(
-        args.outdir,
+    plotting_summary = plots.make_plots(
+        current_analysis_stage_inputs,
+        current_analysis_stage_outdir,
         args.output_name,
-        args.disable_garbage_collection,
     )
+    outputs_to_publish = {
+        'report': os.path.join(args.outdir),
+        'plots': os.path.join(args.outdir),
+    }
+    for output_name, output_dir in outputs_to_publish.items():
+        if output_name in reporting_summary['outputs']:
+            src_path = reporting_summary['outputs'][output_name]
+        elif output_name in plotting_summary['outputs']:
+            src_path = plotting_summary['outputs'][output_name]
+        dest_path = os.path.join(output_dir, os.path.basename(src_path))
+        shutil.copy(src_path, dest_path)
+        log.info(f'Published output: {output_name} -> {dest_path}')
+
     
     if not args.disable_garbage_collection:
+        analysis_by_stage_dir = os.path.join(args.outdir, 'analysis_by_stage')
         for stage in analysis_stages:
             stage_index = analysis_stages.index(stage)
-            stage_outdir = os.path.join(args.outdir, 'analysis_by_stage', f'{stage_index:02}_{stage}')
+            stage_outdir = os.path.join(analysis_by_stage_dir, f'{stage_index:02}_{stage}')
             shutil.rmtree(stage_outdir)
             log.info(f'Removed intermediate files for analysis stage: {stage}')
+        shutil.rmtree(analysis_by_stage_dir)
     else:
         log.info('Garbage collection disabled. Intermediate files were not removed.')
 
     log.info('Analysis complete.')
     exit(0)
-
-    
-
-
-
-
-
-
-def make_consensus_seqs(outdir, out_name, collect_garbage):
-    """
-    High quality variants and masked positions (mask_ambig_low_cov func) are
-    applied to the mapping references (make_mapping_refs) to generate the final
-    consensus sequences for each segment.
-
-    :param outdir: Path to the output directory.
-    :type outdir: Path
-    :param out_name: Name used for outputs.
-    :type out_name: str
-    :param collect_garbage: Whether to remove intermediate files.
-    :type collect_garbage: bool
-    """
-    log.info('Generating consensus sequences...')
-
-    # Zip and index VCF.
-    variants = os.path.join(outdir, out_name, f'{out_name}_variants.vcf')
-    zipped_variants = os.path.join(outdir, out_name, 'variants.bcf')
-    terminal_command = (f'bcftools view {variants} -Ob -o {zipped_variants}')
-    process_name = 'bcftools_view'
-    error_code = 19
-    run(terminal_command, outdir, out_name, process_name, error_code, collect_garbage)
-    terminal_command = (f'bcftools index {zipped_variants}')
-    process_name = 'bcftools_index'
-    error_code = 20
-    run(terminal_command, outdir, out_name, process_name, error_code, collect_garbage)
-    # Apply variants to mapping refs.
-    log.info('Applying variants to mapping references...')
-    mapping_refs = os.path.join(outdir, out_name, f'{out_name}_mapping_refs.fa')
-    masked = os.path.join(outdir, out_name, 'masked.bed')
-    consensus_seqs = os.path.join(outdir, out_name, f'{out_name}_consensus_seqs.fa')
-    terminal_command = (f'cat {mapping_refs} | bcftools consensus -m {masked} '
-                        f'{zipped_variants} > {consensus_seqs}')
-    process_name = 'bcftools_consensus'
-    error_code = 21
-    run(terminal_command, outdir, out_name, process_name, error_code, collect_garbage)
-
-    # Reformat FASTA headers and remove whitespace.
-    clean_seqs = {}
-    with open(consensus_seqs, 'r') as f:
-        for line in f:
-            if line[0] == '>':
-                header = line.strip()
-                clean_seqs[header] = ''
-            else:
-                clean_seqs[header] += line.strip().upper()
-
-    with open(consensus_seqs, 'w') as f:
-        for header, seq in clean_seqs.items():
-            header = '|'.join(header.split('|')[:3]) + '|'
-            f.write(header + '\n')
-            f.write(seq + '\n')
-
-    log.info(f'Wrote consensus sequences to {consensus_seqs}')
-
-    # Check that consensus seq lenghts are within expected range. '''
-    segment_lengths = {'PB2': (2260, 2360), 'PB1': (2260, 2360), 'PA': (2120, 2250),
-                       'HA': (1650, 1800), 'NP': (1480, 1580), 'NA': (1250, 1560),
-                       'M': (975, 1030), 'NS': (815, 900)}
-    for header, seq in clean_seqs.items():
-        segment = header.split('|')[1]
-        min_length = segment_lengths[segment][0]
-        max_length = segment_lengths[segment][1]
-        if not (min_length <= len(seq) <= max_length):
-            log.error(f'The consensus sequence generated for segment '
-                      f'{segment} is not within the expected length range '
-                      f'({min_length} to {max_length} bases).\n')
-            exit(22)
-
-def write_report(outdir, out_name, collect_garbage):
-    """
-    Generate a report for each segment.
-
-    :param outdir: Path to the output directory.
-    :type outdir: Path
-    :param out_name: Name used for outputs.
-    :type out_name: str
-    :param collect_garbage: Whether to remove intermediate files.
-    :type collect_garbage: bool
-    """
-    log.info('Writing report...')
-    
-    # Count reads mapped to each segment and add to report.
-    filtered_alignment = os.path.join(outdir, out_name, f'{out_name}_alignment.bam')
-    reads_mapped = os.path.join(outdir, out_name, 'reads_mapped.tsv')
-    terminal_command = (f'samtools idxstats {filtered_alignment} > '
-                        f'{reads_mapped}')
-    process_name = 'samtools_idxstats'
-    error_code = 23
-    run(terminal_command, outdir, out_name, process_name, error_code, collect_garbage)
-    cols = 'seq_name seq_length reads_mapped reads_unmapped'.split(' ')
-    reads_mapped = pd.read_csv(reads_mapped, sep='\t', names=cols)
-    reads_mapped = reads_mapped.replace('*', np.nan).dropna()
-    get_seq_name = lambda row: '|'.join(row['seq_name'].split('|')[:3])
-    reads_mapped['seq_name'] = reads_mapped.apply(get_seq_name, axis=1) 
-    cols = ['seq_name', 'reads_mapped', 'seq_length']
-    report = reads_mapped[cols].drop_duplicates()
-    
-    # Annotate segment and subtype.
-    get_segment = lambda row: row['seq_name'].split('|')[1]
-    report['segment'] = report.apply(get_segment, axis=1)
-    get_subtype = lambda row: row['seq_name'].split('|')[2]
-    report['subtype'] = report.apply(get_subtype, axis=1)
-    
-    #Add scaffold completeness to report.
-    seqs = {}
-    scaffolds = os.path.join(outdir, out_name, 'scaffolds.fa')
-    with open(scaffolds, 'r') as input_file:
-        for line in input_file:
-            if line[0] == '>':
-                seq_name = line[1:].strip()
-                seqs[seq_name] = ''
-            else:
-                seqs[seq_name] += line.strip()
-    completeness = {}
-    for seq_name, seq in seqs.items():
-        segment = seq_name.split('|')[1].split('_')[0]
-        perc = sum(seq.count(base) for base in 'ATGC') * 100 / len(seq)
-        perc = round(perc, 2)
-        completeness[segment] = perc
-    report['scaffold_completeness'] = report['segment'].map(completeness)
-
-    # Add consensus completeness to report.
-    seqs = {}
-    consensus_seqs = os.path.join(outdir, out_name, f'{out_name}_consensus_seqs.fa')
-    with open(consensus_seqs, 'r') as input_file:
-        for line in input_file:
-            if line[0] == '>':
-                seq_name = line[1:].strip()
-                seqs[seq_name] = ''
-            else:
-                seqs[seq_name] += line.strip()
-    completeness = {}
-    for seq_name, seq in seqs.items():
-        segment = seq_name.split('|')[1]
-        perc = sum(seq.count(base) for base in 'ATGC') * 100 / len(seq)
-        perc = round(perc, 2)
-        completeness[segment] = perc
-    report['consensus_completeness'] = report['segment'].map(completeness)
-    
-    # Add best ref seq to report.
-    ref_seqs_used = {}
-    mapping_refs = os.path.join(outdir, out_name, f'{out_name}_mapping_refs.fa')
-    with open(mapping_refs, 'r') as input_file:
-        for line in input_file:
-            if line[0] == '>':
-                line = line[1:].strip().split('|')
-                seq_name, segment, subtype = line[:3]
-                accession, ref_name, ref_subtype = line[3:]
-                seq_name = f'{seq_name}|{segment}|{subtype}'
-                ref_seqs_used[seq_name] = (f'{accession}|{ref_name}'
-                                           f'({ref_subtype})')
-    report['ref_seq_used'] = report['seq_name'].map(ref_seqs_used)
-    
-    # Write report to TSV file.
-    segment_order ='PB2 PB1 PA HA NP NA M NS'.split(' ')
-    get_sort_value = lambda row: segment_order.index(row['segment'])
-    report['sort'] = report.apply(get_sort_value, axis=1)
-    report = report.sort_values(by='sort')
-    cols = ['seq_name', 'segment', 'subtype', 'reads_mapped', 'seq_length',
-            'scaffold_completeness', 'consensus_completeness', 'ref_seq_used']
-    report = report[cols]
-    report.to_csv(os.path.join(outdir, out_name, f'{out_name}_report.tsv'),
-                  index=False, sep='\t')
 
 
 if __name__ == '__main__':

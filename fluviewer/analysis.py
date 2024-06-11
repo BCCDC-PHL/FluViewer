@@ -695,9 +695,12 @@ def make_scaffold_seqs(inputs, outdir, out_name):
     collapsing all the contigs describing that segment.
 
     Unaligned leading and trailing sequences are trimmed from the
-    contigs. Next, leading and trailing Ns are added to the contig so that it is
+    contigs.
+
+    Next, leading and trailing Ns are added to the contig so that it is
     properly positioned within the segment (based on the subject-start and
     subject-end coordinates of its alignment to the selected reference sequence).
+
     Next, clustalW is used to generate a multiple sequence alignment of the
     trimmed, positioned contigs. This multiple sequence alignment is used to
     generate a consensus sequence of the regions of the segment covered by
@@ -908,6 +911,10 @@ def make_scaffold_seqs(inputs, outdir, out_name):
     analysis_summary['timestamp_analysis_complete'] = timestamp_analysis_complete
     analysis_summary['return_code'] = clustalw_return_code
     analysis_summary['outputs'] = outputs
+
+    with open(os.path.join(outdir, 'analysis_summary.json'), 'w') as f:
+        json.dump(analysis_summary, f, indent=4)
+        f.write('\n')
     
     return analysis_summary
 
@@ -1014,6 +1021,10 @@ def blast_scaffolds(inputs, outdir, out_name, threads):
     analysis_summary['timestamp_analysis_complete'] = timestamp_analysis_complete
     analysis_summary['return_code'] = return_code
     analysis_summary['outputs'] = outputs
+
+    with open(os.path.join(outdir, 'analysis_summary.json'), 'w') as f:
+        json.dump(analysis_summary, f, indent=4)
+        f.write('\n')
 
     return analysis_summary
 
@@ -1205,14 +1216,18 @@ def map_reads(inputs, outdir, out_name, min_qual):
     analysis_summary['return_code'] = return_code
     analysis_summary['timestamp_analysis_complete'] = timestamp_analysis_complete
 
+    with open(os.path.join(outdir, 'analysis_summary.json'), 'w') as f:
+        json.dump(analysis_summary, f, indent=4)
+        f.write('\n')
+
     return analysis_summary
 
 
 def mask_ambig_low_cov(
-        variants_raw_path,
-        outdir,
-        out_name,
-        params,
+        variants_raw_path: Path,
+        outdir: Path,
+        out_name: str,
+        params: dict,
 ):
     """
     The FreeBayes VCF output is parsed, analyzing total read depth and
@@ -1235,11 +1250,11 @@ def mask_ambig_low_cov(
     :type out_name: str
     :param params: Dictionary of parameters, with keys 'min_depth', 'min_qual', 'vaf_call', 'vaf_ambig'.
     :type params: dict
-    :return: Summary of the analysis.
-    
+    :return: Output files. Keys are 'filtered_variants' and 'depth_of_cov'.
+    :rtype: dict
     """
     log.info('Masking ambiguous and low coverage positions...')
-    
+    outputs = {}
     # Open input/output files and initialize dicts.
     variants_raw = open(variants_raw_path, 'r')
     variants_filtered_path = os.path.join(outdir, f'{out_name}_variants.vcf')
@@ -1338,6 +1353,11 @@ def mask_ambig_low_cov(
     variants_filtered.close()
     depth_of_cov.close()
 
+    outputs['filtered_variants'] = os.path.abspath(variants_filtered_path)
+    log.info(f'Wrote filtered variants to {variants_filtered_path}')
+    outputs['depth_of_cov'] = os.path.abspath(depth_of_cov_path)
+    log.info(f'Wrote depth of coverage to {depth_of_cov_path}')
+
     # Convert sets of low cov positions into tuples representing zero-indexed
     # spans of masked positions (start, end).
     masked_pos = dict()
@@ -1369,6 +1389,7 @@ def mask_ambig_low_cov(
                 line = '\t'.join(str(i) for i in line)
                 f.write(line + '\n')
     log.info(f'Wrote low coverage positions to {low_cov_path}')
+    outputs['low_cov'] = os.path.abspath(low_cov_path)
 
     # Write ambiguous positions to TSV file.
     ambig_path = os.path.join(outdir, f'{out_name}_ambig.tsv')
@@ -1379,6 +1400,7 @@ def mask_ambig_low_cov(
                 line = '\t'.join(str(i) for i in line)
                 f.write(line + '\n')
     log.info(f'Wrote ambiguous positions to {ambig_path}')
+    outputs['ambiguous_positions'] = os.path.abspath(ambig_path)
 
     # Write variant positions to TSV file.
     variants_tsv_path = os.path.join(outdir, f'{out_name}_variants.tsv')
@@ -1389,7 +1411,8 @@ def mask_ambig_low_cov(
                 line = '\t'.join(str(i) for i in line)
                 f.write(line + '\n')
     log.info(f'Wrote variant positions to {variants_tsv_path}')
-              
+    outputs['variant_positions'] = os.path.abspath(variants_tsv_path)
+
     # Write spans of masked positions to BED file in BedGraph format.
     masked_path = os.path.join(outdir, f'{out_name}_masked.bed')          
     with open(masked_path, 'w') as f:
@@ -1399,8 +1422,9 @@ def mask_ambig_low_cov(
                 line = '\t'.join(str(i) for i in line)
                 f.write(line + '\n')
     log.info(f'Wrote masked positions to {masked_path}')
+    outputs['masked_positions'] = os.path.abspath(masked_path)
 
-    return variants_filtered_path
+    return outputs
 
 
 def call_variants(inputs, outdir, out_name, params):
@@ -1459,15 +1483,21 @@ def call_variants(inputs, outdir, out_name, params):
 
     log.info(f'Wrote raw variants to {variants_raw_path}')
 
-    variants_filtered_path = mask_ambig_low_cov(
+    masking_outputs = mask_ambig_low_cov(
         variants_raw_path,
         outdir,
         out_name,
         params,
     )
+
     outputs = {
-        'variants_raw': os.path.abspath(variants_raw_path),
-        'variants_filtered': os.path.abspath(variants_filtered_path),
+        'variants_raw':           os.path.abspath(variants_raw_path),
+        'variants_filtered':      os.path.abspath(masking_outputs['filtered_variants']),
+        'masked_positions':       os.path.abspath(masking_outputs['masked_positions']),
+        'depth_of_cov_freebayes': os.path.abspath(masking_outputs['depth_of_cov']),
+        'low_coverage_positions': os.path.abspath(masking_outputs['low_cov']),
+        'ambiguous_positions':    os.path.abspath(masking_outputs['ambiguous_positions']),
+        'variant_positions':      os.path.abspath(masking_outputs['variant_positions']),
     }
 
     analysis_summary['process_name'] = 'call_variants'
@@ -1476,7 +1506,113 @@ def call_variants(inputs, outdir, out_name, params):
     analysis_summary['return_code'] = return_code
     analysis_summary['outputs'] = outputs
 
+    with open(os.path.join(outdir, 'analysis_summary.json'), 'w') as f:
+        json.dump(analysis_summary, f, indent=4)
+        f.write('\n')
+
     return analysis_summary
 
     
+def make_consensus_seqs(inputs, outdir, out_name):
+    """
+    High quality variants and masked positions (mask_ambig_low_cov func) are
+    applied to the mapping references (make_mapping_refs) to generate the final
+    consensus sequences for each segment.
+
+    :param inputs: Dictionary of input files, with keys 'variants_filtered' and 'mapping_refs'.
+    :type inputs: dict
+    :param outdir: Path to the output directory.
+    :type outdir: Path
+    :param out_name: Name used for outputs.
+    :type out_name: str
+    """
+    log.info('Generating consensus sequences...')
+    log_dir = os.path.join(outdir, 'logs')
+    os.makedirs(log_dir, exist_ok=True)
     
+    timestamp_analysis_start = datetime.datetime.now().isoformat()
+    analysis_summary = {
+        'timestamp_analysis_start': timestamp_analysis_start,
+        'inputs': inputs,
+    }
+    outputs = {}
+
+    # Zip and index VCF.
+    variants = inputs.get('variants_filtered', None)
+    zipped_variants = os.path.join(outdir, f'{out_name}_variants.bcf')
+    terminal_command = (f'bcftools view {variants} -Ob -o {zipped_variants}')
+    process_name = 'bcftools_view'
+    error_code = 19
+    return_code = run(terminal_command, outdir, out_name, process_name, error_code)
+    if return_code != 0:
+        log.error(f'Error running bcftools view (Exit status: {return_code})')
+        analysis_summary['return_code'] = error_code
+        analysis_summary['error_message'] = error_messages_by_code[error_code]
+        return analysis_summary
+
+    terminal_command = (f'bcftools index {zipped_variants}')
+    process_name = 'bcftools_index'
+    error_code = 20
+    return_code = run(terminal_command, outdir, out_name, process_name, error_code)
+    if return_code != 0:
+        log.error(f'Error running bcftools index (Exit status: {return_code})')
+        analysis_summary['return_code'] = error_code
+        analysis_summary['error_message'] = error_messages_by_code[error_code]
+        return analysis_summary
+
+    # Apply variants to mapping refs.
+    log.info('Applying variants to mapping references...')
+    mapping_refs = inputs.get('mapping_refs', None)
+    masked = inputs.get('masked_positions', None)
+    consensus_seqs = os.path.join(outdir, f'{out_name}_consensus_seqs.fa')
+    terminal_command = (f'cat {mapping_refs} | bcftools consensus -m {masked} '
+                        f'{zipped_variants} > {consensus_seqs}')
+    process_name = 'bcftools_consensus'
+    error_code = 21
+    return_code = run(terminal_command, outdir, out_name, process_name, error_code)
+    if return_code != 0:
+        log.error(f'Error running bcftools consensus (Exit status: {return_code})')
+        analysis_summary['return_code'] = error_code
+        analysis_summary['error_message'] = error_messages_by_code[error_code]
+        return analysis_summary
+
+    # Reformat FASTA headers and remove whitespace.
+    clean_seqs = {}
+    with open(consensus_seqs, 'r') as f:
+        for line in f:
+            if line[0] == '>':
+                header = line.strip()
+                clean_seqs[header] = ''
+            else:
+                clean_seqs[header] += line.strip().upper()
+
+    with open(consensus_seqs, 'w') as f:
+        for header, seq in clean_seqs.items():
+            header = '|'.join(header.split('|')[:3]) + '|'
+            f.write(header + '\n')
+            f.write(seq + '\n')
+
+    log.info(f'Wrote consensus sequences to {consensus_seqs}')
+    outputs['consensus_seqs'] = os.path.abspath(consensus_seqs)
+
+    # Check that consensus seq lenghts are within expected range. '''
+    segment_lengths = {'PB2': (2260, 2360), 'PB1': (2260, 2360), 'PA': (2120, 2250),
+                       'HA': (1650, 1800), 'NP': (1480, 1580), 'NA': (1250, 1560),
+                       'M': (975, 1030), 'NS': (815, 900)}
+    for header, seq in clean_seqs.items():
+        segment = header.split('|')[1]
+        min_length = segment_lengths[segment][0]
+        max_length = segment_lengths[segment][1]
+        if not (min_length <= len(seq) <= max_length):
+            log.error(f'The consensus sequence generated for segment '
+                      f'{segment} is not within the expected length range '
+                      f'({min_length} to {max_length} bases).\n')
+            exit(22)
+
+    timestamp_analysis_complete = datetime.datetime.now().isoformat()
+    analysis_summary['process_name'] = 'make_consensus_seqs'
+    analysis_summary['timestamp_analysis_complete'] = timestamp_analysis_complete
+    analysis_summary['return_code'] = return_code
+    analysis_summary['outputs'] = outputs
+
+    return analysis_summary
