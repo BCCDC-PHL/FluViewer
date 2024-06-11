@@ -12,9 +12,9 @@ def parse_args():
     parser = argparse.ArgumentParser(description='BCCDC-PHL/FluViewer: Influenza A virus consensus sequence generation and variant calling')
     parser.add_argument('-f', '--forward-reads', type=Path, required=True, help='Path to FASTQ file containing forward reads')
     parser.add_argument('-r', '--reverse-reads', type=Path, required=True, help='Path to FASTQ file containing reverse reads')
-    parser.add_argument('-d', '--database', type=Path, required=True, help='Path to FASTA file containing FluViewer database')
+    parser.add_argument('-d', '--db', type=Path, required=True, help='Path to FASTA file containing FluViewer database')
     parser.add_argument('-o', '--outdir', type=Path, help='Output directory (default=FluViewer_<output-name>)')
-    parser.add_argument('-n', '--output-name', type=str, required=True, help='Output name. Creates directory with this name for output, includes this name in output files, and in consensus sequence headers')
+    parser.add_argument('-n', '--output-name', type=str, required=True, help='Output name. Includes this name in output files, and in consensus sequence headers')
     parser.add_argument('-i', '--min-identity', type=float, default=90, metavar="[0-100]", help='Minimum percent sequence identity between database reference sequences and contigs (default=90)')
     parser.add_argument('-l', '--min-alignment-length', type=int, default=50, metavar="[32-]", help='Minimum length of alignment between database reference sequences and contigs (default=50)')
     parser.add_argument('-D', '--min-depth', type=int, default=20, metavar="[1-]", help='Minimum read depth for base calling (default=20)')
@@ -46,30 +46,30 @@ def validate_args(args):
                            'error_msg': 'Input file does not exist: {0}' },
         'reverse_reads': { 'validation_fn': lambda x: os.path.isfile(x),
                            'error_msg': 'Input file does not exist: {0}' },
-        'database': { 'validation_fn': lambda x: os.path.isfile(x),
-                      'error_msg': 'Input file does not exist: {0}' },
-        'outdir': { 'validation_fn': lambda x: True,
-                    'error_msg': None },
-        'min_identity': { 'validation_fn': lambda x: 0 <= x <= 100,
-                      'error_msg': 'Minimum percent sequence identity must be between 0 and 100: {0}' },
+        'db':            { 'validation_fn': lambda x: os.path.isfile(x),
+                           'error_msg': 'Input file does not exist: {0}' },
+        'outdir':        { 'validation_fn': lambda x: True,
+                           'error_msg': None },
+        'min_identity':         { 'validation_fn': lambda x: 0 <= x <= 100,
+                                  'error_msg': 'Minimum percent sequence identity must be between 0 and 100: {0}' },
         'min_alignment_length': { 'validation_fn': lambda x: x >= 32,
                                   'error_msg': 'Minimum alignment length must be at least 32: {0}' },
-        'min_depth': { 'validation_fn': lambda x: x >= 1,
-                       'error_msg': 'Minimum read depth must be at least 1: {0}' },
-        'min_mapping_quality': { 'validation_fn': lambda x: x >= 0,
-                                 'error_msg': 'Minimum PHRED score must be at least 0: {0}' },
+        'min_depth':            { 'validation_fn': lambda x: x >= 1,
+                                  'error_msg': 'Minimum read depth must be at least 1: {0}' },
+        'min_mapping_quality':  { 'validation_fn': lambda x: x >= 0,
+                                  'error_msg': 'Minimum PHRED score must be at least 0: {0}' },
         'variant_threshold_calling': { 'validation_fn': lambda x: 0 <= x <= 1,
                                        'error_msg': 'Variant allele fraction threshold for calling variants must be between 0 and 1: {0}' },
         'variant_threshold_masking': { 'validation_fn': lambda x: 0 <= x <= 1,
                                        'error_msg': 'Variant allele fraction threshold for masking ambiguous variants must be between 0 and 1: {0}' },
-        'target_depth': { 'validation_fn': lambda x: x >= 1,
-                          'error_msg': 'Target depth for pre-normalization of reads must be at least 1: {0}' },
+        'target_depth':   { 'validation_fn': lambda x: x >= 1,
+                            'error_msg': 'Target depth for pre-normalization of reads must be at least 1: {0}' },
         'coverage_limit': { 'validation_fn': lambda x: x >= 1,
                             'error_msg': 'Coverage depth limit for variant calling must be at least 1: {0}' },
-        'threads': { 'validation_fn': lambda x: x >= 1,
-                     'error_msg': 'Threads used for contig/scaffold alignments must be at least 1: {0}' },
-        'max_memory': { 'validation_fn': lambda x: x is None or x >= 1,
-                        'error_msg': 'Gigabytes of memory allocated for normalizing reads must be at least 1: {0}' }
+        'threads':        { 'validation_fn': lambda x: x >= 1,
+                            'error_msg': 'Threads used for contig/scaffold alignments must be at least 1: {0}' },
+        'max_memory':     { 'validation_fn': lambda x: x is None or x >= 1,
+                            'error_msg': 'Gigabytes of memory allocated for normalizing reads must be at least 1: {0}' }
     }
     
     for arg_name, rule in independent_validation_rules.items():

@@ -49,7 +49,7 @@ def main():
     log.info(f'Inputs:')
     log.info(f"Fwd reads: {args.forward_reads}")
     log.info(f"Rev reads: {args.reverse_reads}")
-    log.info(f"Reference sequences: {args.database}")
+    log.info(f"Reference sequences: {args.db}")
 
     log.info(f"Outputs:")
     log.info(f"Output directory: {args.outdir}")
@@ -74,7 +74,7 @@ def main():
         exit(1)
 
     database.check_database(
-        args.database,
+        args.db,
         args.outdir,
         args.output_name,
     )    
@@ -124,8 +124,6 @@ def main():
         exit(normalize_depth_analysis_summary['return_code'])
 
     outputs_to_publish = {
-        'normalized_reads_fwd': os.path.join(args.outdir),
-        'normalized_reads_rev': os.path.join(args.outdir),
     }
     for output_name, output_dir in outputs_to_publish.items():
         src_path = normalize_depth_analysis_summary['outputs'][output_name]
@@ -162,7 +160,6 @@ def main():
         exit(assemble_contigs_analysis_summary['return_code'])
 
     outputs_to_publish = {
-        'contigs': os.path.join(args.outdir),
     }
     for output_name, output_dir in outputs_to_publish.items():
         src_path = assemble_contigs_analysis_summary['outputs'][output_name]
@@ -181,7 +178,7 @@ def main():
     current_analysis_stage_index = analysis_stages.index(current_analysis_stage)
     current_analysis_stage_inputs = {
         'contigs': assemble_contigs_analysis_summary['outputs']['contigs'],
-        'database': os.path.abspath(args.database),
+        'database': os.path.abspath(args.db),
     }
     current_analysis_stage_outdir = os.path.join(args.outdir, 'analysis_by_stage', f'{current_analysis_stage_index:02}_{current_analysis_stage}')
     current_analysis_stage_outdir = os.path.abspath(current_analysis_stage_outdir)
@@ -201,8 +198,6 @@ def main():
         exit(blast_contigs_analysis_summary['return_code'])
 
     outputs_to_publish = {
-        'all_contig_blast_results': os.path.join(args.outdir),
-        'filtered_contig_blast_results': os.path.join(args.outdir),
     }
     for output_name, output_dir in outputs_to_publish.items():
         src_path = blast_contigs_analysis_summary['outputs'][output_name]
@@ -238,7 +233,7 @@ def main():
 
     blast_scaffolds_inputs = {
         'scaffolds': make_scaffold_seqs_analysis_summary['outputs']['scaffolds'],
-        'database': os.path.abspath(args.database),
+        'database': os.path.abspath(args.db),
     }
 
     blast_scaffolds_analysis_summary = analysis.blast_scaffolds(
@@ -249,8 +244,6 @@ def main():
     )
 
     outputs_to_publish = {
-        'scaffolds': os.path.join(args.outdir),
-        'filtered_scaffold_blast_results': os.path.join(args.outdir),
     }
     for output_name, output_dir in outputs_to_publish.items():
         if output_name in make_scaffold_seqs_analysis_summary['outputs']:
@@ -273,12 +266,12 @@ def main():
     current_analysis_stage_outdir = os.path.abspath(current_analysis_stage_outdir)
     current_analysis_stage_inputs = {
         'filtered_scaffold_blast_results': blast_scaffolds_analysis_summary['outputs']['filtered_scaffold_blast_results'],
-        'database': os.path.abspath(args.database),
+        'database': os.path.abspath(args.db),
         'normalized_reads_fwd': normalize_depth_analysis_summary['outputs']['normalized_reads_fwd'],
         'normalized_reads_rev': normalize_depth_analysis_summary['outputs']['normalized_reads_rev'],
     }
     log.info(f'Beginning analysis stage: {current_analysis_stage}')
-        
+
     map_reads_analysis_summary = analysis.map_reads(
         current_analysis_stage_inputs,
         current_analysis_stage_outdir,
@@ -338,9 +331,7 @@ def main():
         exit(call_variants_analysis_summary['return_code'])
 
     outputs_to_publish = {
-        'variants_raw': os.path.join(args.outdir),
         'variants_filtered': os.path.join(args.outdir),
-        'masked_positions': os.path.join(args.outdir),
     }
     for output_name, output_dir in outputs_to_publish.items():
         src_path = call_variants_analysis_summary['outputs'][output_name]
@@ -415,9 +406,10 @@ def main():
         current_analysis_stage_outdir,
         args.output_name,
     )
+
     outputs_to_publish = {
         'report': os.path.join(args.outdir),
-        'plots': os.path.join(args.outdir),
+        'depth_of_cov_plots': os.path.join(args.outdir),
     }
     for output_name, output_dir in outputs_to_publish.items():
         if output_name in reporting_summary['outputs']:
