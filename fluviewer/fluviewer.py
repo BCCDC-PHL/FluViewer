@@ -194,6 +194,11 @@ def main():
         args.min_identity,
         args.min_alignment_length,
     )
+    if blast_contigs_analysis_summary['return_code'] != 0:
+        log.error(f'Error in analysis stage: {current_analysis_stage}')
+        log.error(f'Error code: {blast_contigs_analysis_summary["return_code"]}')
+        exit(blast_contigs_analysis_summary['return_code'])
+
     outputs_to_publish = {
         'all_contig_blast_results': os.path.join(args.outdir),
         'filtered_contig_blast_results': os.path.join(args.outdir),
@@ -224,6 +229,11 @@ def main():
         current_analysis_stage_outdir,
         args.output_name,
     )
+    if make_scaffold_seqs_analysis_summary['return_code'] != 0:
+        log.error(f'Error in analysis stage: {current_analysis_stage}')
+        log.error(f'Error code: {make_scaffold_seqs_analysis_summary["return_code"]}')
+        exit(make_scaffold_seqs_analysis_summary['return_code'])
+
     outputs_to_publish = {
         'scaffolds': os.path.join(args.outdir),
     }

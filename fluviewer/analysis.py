@@ -797,12 +797,14 @@ def make_scaffold_seqs(inputs, outdir, out_name):
             error_code = 10
             analysis_summary['return_code'] = error_code
             analysis_summary['error_message'] = error_messages_by_code[error_code]
+            analysis_summary['outputs'] = outputs
             return analysis_summary
         elif len(alignment_lengths) == 0:
             log.error(f'No sequences in the multiple sequence alignment for {segment}! Aborting analysis.\n')
             error_code = 11
             analysis_summary['return_code'] = error_code
             analysis_summary['error_message'] = error_messages_by_code[error_code]
+            analysis_summary['outputs'] = outputs
             return analysis_summary
 
         # Create consensus sequence of multiple seq alignments, i.e. the
