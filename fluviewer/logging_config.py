@@ -14,8 +14,8 @@ def configure_logging(log_level, log_file):
 
     # Use ISO 8601 format, milliseconds, no timezone
     formatter = logging.Formatter(
-        fmt='%(asctime)s - %(levelname)s %(module)s.%(funcName)s L%(lineno)d : %(message)s',
-        datefmt='%Y-%m-%dT%H:%M:%S.%f'
+        fmt='%(asctime)s.%(msecs)03d - %(levelname)s %(module)s.%(funcName)s L%(lineno)d : %(message)s',
+        datefmt='%Y-%m-%dT%H:%M:%S'
     )
 
     stderr_handler = logging.StreamHandler(sys.stderr)

@@ -831,9 +831,11 @@ def make_scaffold_seqs(inputs, outdir, out_name):
             process_name = f'clustalw_{segment}'
             error_code = 9
             clustalw_return_code = run(terminal_command, outdir, out_name, process_name, error_code)
+            analysis_summary['return_code'] = clustalw_return_code
         else:
             log.info(f'Only one contig for segment {segment}, skipping alignment.')
             shutil.copyfile(contigs, aligned_contigs)
+            analysis_summary['return_code'] = 0
 
         outputs[f'{segment}_aligned_contigs'] = os.path.abspath(aligned_contigs)
 
@@ -908,7 +910,6 @@ def make_scaffold_seqs(inputs, outdir, out_name):
 
     analysis_summary['process_name'] = 'make_scaffold_seqs'
     analysis_summary['timestamp_analysis_complete'] = timestamp_analysis_complete
-    analysis_summary['return_code'] = clustalw_return_code
     analysis_summary['outputs'] = outputs
 
     with open(os.path.join(outdir, 'analysis_summary.json'), 'w') as f:
