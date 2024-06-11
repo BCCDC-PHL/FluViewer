@@ -16,6 +16,7 @@ import pandas as pd
 from . import __version__
 
 from . import cli_args
+from . import database
 from . import analysis
 from . import plots
 import fluviewer.logging
@@ -64,9 +65,14 @@ def main():
     log.info(f"Coverage depth limit for variant calling: {args.coverage_limit}")
     
 
-    prepare_outdir(args.outdir, args.output_name)
+    if not os.path.exists(args.outdir):
+        os.makedirs(args.outdir)
+        log.info(f'Created output directory: {args.outdir}')
+    else:
+        log.error(f'Output directory already exists: {args.outdir}')
+        exit(1)
 
-    check_database(
+    database.check_database(
         args.database,
         args.outdir,
         args.output_name,
@@ -90,7 +96,7 @@ def main():
 
     #
     # Stage 0: Normalize depth of reads.
-    
+    #
     current_analysis_stage = 'normalize_depth'
     current_analysis_stage_index = analysis_stages.index(current_analysis_stage)
     current_analysis_stage_outdir = os.path.join(args.outdir, 'analysis_by_stage', f'{current_analysis_stage_index:02}_{current_analysis_stage}')
@@ -111,15 +117,28 @@ def main():
         os.path.abspath(args.reverse_reads),
         args.target_depth,
         args.max_memory,
-        args.disable_garbage_collection
     )
+    if normalize_depth_analysis_summary['return_code'] != 0:
+        log.error(f'Error in analysis stage: {current_analysis_stage}')
+        log.error(f'Error code: {normalize_depth_analysis_summary["return_code"]}')
+        exit(normalize_depth_analysis_summary['return_code'])
+
+    outputs_to_publish = {
+        'normalized_reads_fwd': os.path.join(args.outdir),
+        'normalized_reads_rev': os.path.join(args.outdir),
+    }
+    for output_name, output_dir in outputs_to_publish.items():
+        src_path = normalize_depth_analysis_summary['outputs'][output_name]
+        dest_path = os.path.join(output_dir, os.path.basename(src_path))
+        shutil.copy(src_path, dest_path)
+        log.info(f'Published output: {output_name} -> {dest_path}')
 
     log.info(f'Analysis stage complete: {current_analysis_stage}')
 
 
     #
     # Stage 1: Assemble contigs.
-    
+    #
     current_analysis_stage = 'assemble_contigs'
     current_analysis_stage_index = analysis_stages.index(current_analysis_stage)
     
@@ -136,18 +155,32 @@ def main():
         current_analysis_stage_inputs,
         current_analysis_stage_outdir,
         args.output_name,
-        args.disable_garbage_collection
     )
+    if assemble_contigs_analysis_summary['return_code'] != 0:
+        log.error(f'Error in analysis stage: {current_analysis_stage}')
+        log.error(f'Error code: {assemble_contigs_analysis_summary["return_code"]}')
+        exit(assemble_contigs_analysis_summary['return_code'])
+
+    outputs_to_publish = {
+        'contigs': os.path.join(args.outdir),
+    }
+    for output_name, output_dir in outputs_to_publish.items():
+        src_path = assemble_contigs_analysis_summary['outputs'][output_name]
+        dest_path = os.path.join(output_dir, os.path.basename(src_path))
+        shutil.copy(src_path, dest_path)
+        log.info(f'Published output: {output_name} -> {dest_path}')
+
 
     log.info(f'Analysis stage complete: {current_analysis_stage}')
 
     #
     # Stage 2: Blast contigs.
-
+    #
     current_analysis_stage = 'blast_contigs'
     current_analysis_stage_index = analysis_stages.index(current_analysis_stage)
     current_analysis_stage_inputs = {
         'contigs': assemble_contigs_analysis_summary['outputs']['contigs'],
+        'database': os.path.abspath(args.database),
     }
     current_analysis_stage_outdir = os.path.join(args.outdir, 'analysis_by_stage', f'{current_analysis_stage_index:02}_{current_analysis_stage}')
     current_analysis_stage_outdir = os.path.abspath(current_analysis_stage_outdir)
@@ -157,34 +190,57 @@ def main():
         current_analysis_stage_inputs,
         current_analysis_stage_outdir,
         args.output_name,
-        args.disable_garbage_collection,
-        args.database,
         args.threads,
         args.min_identity,
         args.min_alignment_length,
     )
+    outputs_to_publish = {
+        'all_contig_blast_results': os.path.join(args.outdir),
+        'filtered_contig_blast_results': os.path.join(args.outdir),
+    }
+    for output_name, output_dir in outputs_to_publish.items():
+        src_path = blast_contigs_analysis_summary['outputs'][output_name]
+        dest_path = os.path.join(output_dir, os.path.basename(src_path))
+        shutil.copy(src_path, dest_path)
+        log.info(f'Published output: {output_name} -> {dest_path}')
 
     log.info(f'Analysis stage complete: {current_analysis_stage}')
 
-    print(json.dumps(blast_contigs_analysis_summary, indent=4))
-    exit()
-
+    #
+    # Stage 3: Scaffolding.
+    #
     current_analysis_stage = 'scaffolding'
     current_analysis_stage_index = analysis_stages.index(current_analysis_stage)
+    current_analysis_stage_inputs = {
+        'filtered_contig_blast_results': blast_contigs_analysis_summary['outputs']['filtered_contig_blast_results'],
+    }
+    current_analysis_stage_outdir = os.path.join(args.outdir, 'analysis_by_stage', f'{current_analysis_stage_index:02}_{current_analysis_stage}')
+    current_analysis_stage_outdir = os.path.abspath(current_analysis_stage_outdir)
+        
     log.info(f'Beginning analysis stage: {current_analysis_stage}')
 
-    make_scaffold_seqs(
-        filtered_blast_results,
-        args.outdir,
+    make_scaffold_seqs_analysis_summary = analysis.make_scaffold_seqs(
+        current_analysis_stage_inputs,
+        current_analysis_stage_outdir,
         args.output_name,
-        args.disable_garbage_collection
     )
+    outputs_to_publish = {
+        'scaffolds': os.path.join(args.outdir),
+    }
+    for output_name, output_dir in outputs_to_publish.items():
+        src_path = make_scaffold_seqs_analysis_summary['outputs'][output_name]
+        dest_path = os.path.join(output_dir, os.path.basename(src_path))
+        shutil.copy(src_path, dest_path)
+        log.info(f'Published output: {output_name} -> {dest_path}')
+    
+    print(json.dumps(make_scaffold_seqs_analysis_summary, indent=4))
+    exit()
+    
 
     scaffold_blast_results = blast_scaffolds(
         args.database,
         args.outdir,
         args.output_name,
-        args.disable_garbage_collection,
         args.threads,
     )
 
@@ -221,7 +277,6 @@ def main():
         args.output_name,
         args.min_mapping_quality,
         args.coverage_limit,
-        args.disable_garbage_collection,
     )
 
     mask_ambig_low_cov(
@@ -231,7 +286,6 @@ def main():
         args.variant_threshold_calling,
         args.variant_threshold_masking,
         args.min_mapping_quality,
-        args.disable_garbage_collection,
     )
 
     log.info(f'Analysis stage complete: {current_analysis_stage}')
@@ -265,312 +319,22 @@ def main():
     )
     
     if not args.disable_garbage_collection:
-        garbage_collection(args.outdir, args.output_name)
+        for stage in analysis_stages:
+            stage_index = analysis_stages.index(stage)
+            stage_outdir = os.path.join(args.outdir, 'analysis_by_stage', f'{stage_index:02}_{stage}')
+            shutil.rmtree(stage_outdir)
+            log.info(f'Removed intermediate files for analysis stage: {stage}')
+    else:
+        log.info('Garbage collection disabled. Intermediate files were not removed.')
 
     log.info('Analysis complete.')
     exit(0)
 
 
-def prepare_outdir(outdir, out_name):
-    """
-    Creates the output directory and subdirectories for logs and intermediate
-    files.
-
-    :param outdir: Path to the output directory.
-    :type outdir: Path
-    :param out_name: Name of the output directory.
-    :type out_name: str
-    :return: None
-    :rtype: None
-    """
-    if not os.path.exists(outdir):
-        os.makedirs(os.path.join(outdir, out_name))
-        logs_path = os.path.join(outdir, out_name, 'logs')
-        os.mkdir(logs_path)
-    else:
-        log.error(f'Output directory already exists: {outdir}')
-        exit(1)
-    
-    
-def check_database(db, outdir, out_name, collect_garbage):
-    """
-    Checks the contents of the provided reference sequence database to
-    ensure proper header formatting and unambiguous sequences.
-
-    :param db: Path to the reference sequence database.
-    :type db: Path
-    :return: None
-    :rtype: None
-    """
-    log.info('Checking reference sequence database...')
-    seqs = {}
-    headers = []
-    with open(db, 'r') as f:
-        for line in f:
-            if line.startswith('>'):
-                header = line.strip()
-                headers.append(header)
-                seqs[header] = ''
-            else:
-                seqs[header] += line.strip()
-    headers = Counter(headers)
-    for header in headers:
-        if headers[header] > 1:
-            logging.error(f'The following header is used for multiple sequences:'
-                          f'\n{header}\n')
-            exit(1)
-
-    num_seqs = len(seqs)
-    one_tenth_of_seqs = ceil(num_seqs / 10)
-    log.info(f'Found {num_seqs} sequences in database.')
-
-    log.info('Checking database sequences...')
-
-    segment_lengths = {
-        'PB2': (2260, 2360),
-        'PB1': (2260, 2360),
-        'PA': (2120, 2250),
-        'HA': (1650, 1800),
-        'NP': (1480, 1580),
-        'NA': (1250, 1560),
-        'M': (975, 1030),
-        'NS': (815, 900),
-    }
-
-    log.info('Checking sequence headers')
-    log.info('Checking sequence lengths within expected ranges for each segment')
-    log.info('Checking for ambiguous or lower-case nucleotides')
-
-    num_seqs_checked = 0
-    for header, seq in seqs.items():
-
-        #
-        # Check header formatting
-        if len(header.split('|')) != 4:
-            log.error(f'The header for the following database entry does not contain the expected number of |-delimited fields:\n{header}\n')
-            exit(1)
-        else:
-            accession, name, segment, subtype = header.split('|')
-            
-            # Check that the strain name is formatted correctly
-            # (e.g. "A/California/04/2009(H1N1)")
-            if any([name.count('(') != 1, name.count(')') != 1,
-                    name[-1] != ')', name.index('(') > name.index(')')]):
-                log.error(f'The strain_name(strain_subtype) for the following database entry is improperly formatted:\n{header}\n')
-                exit(1)
-            if segment not in segment_lengths.keys():
-                log.error(f'The segment indicated for the following database entry is not recognized:\n{header}\n')
-                exit(1)
-        if len(seq) != sum(seq.count(base) for base in 'ATGC'):
-            log.error(f'The sequence provided for the following database entry '
-                      f'contains ambiguous or lower-case nucleotides:\n{header}\n')
-            exit(1)
-
-        #
-        # Check sequence lengths
-        min_length = segment_lengths[segment][0]
-        max_length = segment_lengths[segment][1]
-        if not (min_length <= len(seq) <= max_length):
-            log.error(f'The sequence provided for the following database entry '
-                      f'is not within the expected length range for its indicated '
-                      f'segment ({segment}: {min_length} to {max_length} bases): '
-                      f'\n{header}\n')
-            exit(1)
-
-        num_seqs_checked += 1
-        if num_seqs_checked % one_tenth_of_seqs == 0:
-            percent_seqs_checked = num_seqs_checked / num_seqs * 100
-            log.info(f'Checked {num_seqs_checked} ({percent_seqs_checked:.2f}%) database sequences...')
-
-    percent_seqs_checked = num_seqs_checked / num_seqs * 100
-
-    log.info(f'Confirmed {num_seqs} ({percent_seqs_checked}%) database sequence headers are properly formatted.')
-    log.info(f'Confirmed {num_seqs} ({percent_seqs_checked}%) database sequences are within expected length ranges for their indicated segments.')
-    log.info(f'Confirmed {num_seqs} ({percent_seqs_checked}%) database sequences do not contain ambiguous or lower-case nucleotides.')
-
-    db = os.path.abspath(db)
-    db_suffixes = ['nhr', 'nin', 'nsq']
-    if any([not os.path.exists(db + '.' + suffix) for suffix in db_suffixes]):
-        terminal_command = f'makeblastdb -in {db} -dbtype nucl'
-        process_name = 'makeblastdb_contigs'
-        error_code = 5
-        try:
-            run(terminal_command, outdir, out_name, process_name, error_code, collect_garbage)
-        except Exception as e:
-            log.error(f'Error creating BLAST database: at {os.path.dirname(db)} {e}')
-            exit(1)    
 
 
 
 
-
-
-def make_scaffold_seqs(blast_results, outdir, out_name, collect_garbage):
-    """
-    A scaffold sequence is created for each genome segment by joining and
-    collapsing all the contigs describing that segment.
-
-    Unaligned leading and trailing sequences are trimmed from the
-    contigs. Next, leading and trailing Ns are added to the contig so that it is
-    properly positioned within the segment (based on the subject-start and
-    subject-end coordinates of its alignment to the selected reference sequence).
-    Next, clustalW is used to generate a multiple sequence alignment of the
-    trimmed, positioned contigs. This multiple sequence alignment is used to
-    generate a consensus sequence of the regions of the segment covered by
-    contigs.
-    """
-    log.info('Creating scaffolds...')
-    # Make sure contigs are all in the forward orientation.
-    
-    rev_comp_bases = {'A': 'T',
-                      'T': 'A',
-                      'G': 'C',
-                      'C': 'G',
-                      'N': 'N',
-                      '-': '-',
-                      'W': 'W',
-                      'S': 'S',
-                      'M': 'K',
-                      'K': 'M',
-                      'R': 'Y',
-                      'Y': 'R',
-                      'B': 'V',
-                      'D': 'H',
-                      'H': 'D',
-                      'V': 'B'}
-    rev_comp_seq = lambda seq: ''.join(rev_comp_bases[base]
-                                       for base in seq[::-1])
-    get_start = lambda row: min([row['sstart'], row['send']])
-
-    blast_results['start'] = blast_results.apply(get_start, axis=1)
-    get_end = lambda row: max([row['sstart'], row['send']])
-    blast_results['end'] = blast_results.apply(get_end, axis=1)
-
-    def flip_qseq(row):
-        """
-        Flip the query sequence if the alignment is in the reverse orientation.
-
-        :param row: BLASTn result.
-        :type row: pd.Series
-        :return: Flipped query sequence.
-        :rtype: str
-        """
-        if row['sstart'] > row['send']:
-            log.info(f'Flipping seq for contig: {row["qseqid"]}')
-            return rev_comp_seq(row['qseq'])
-        else:
-            return row['qseq']
-
-    blast_results['qseq'] = blast_results.apply(flip_qseq, axis=1)
-    def flip_sseq(row):
-        """
-        Flip the subject sequence if the alignment is in the reverse orientation.
-
-        :param row: BLASTn result.
-        :type row: pd.Series
-        :return: Flipped subject sequence.
-        :rtype: str
-        """
-        if row['sstart'] > row['send']:
-            log.info(f'Flipping seq for ref: {row["sseqid"]}')
-            return rev_comp_seq(row['sseq'])
-        else:
-            return row['sseq']
-
-    blast_results['sseq'] = blast_results.apply(flip_sseq, axis=1)
-
-    # Trim contigs based on their alignments to reference sequences. Also
-    # add leading and trailing Ns to contig so that it is properly positioned
-    # within the genome segment.
-    segments = blast_results['segment'].unique()
-    contig_counter = {segment: 0 for segment in segments}
-    scaffold_seqs = {}
-    for segment in segments:
-        contigs = os.path.join(outdir, out_name, f'{segment}_contigs.fa')
-        with open(contigs, 'w') as f:
-            contig_results = blast_results[blast_results['segment']==segment]
-            for index, row in contig_results.iterrows():
-                header = f'>{segment}_contig_{contig_counter[segment]}\n'
-                f.write(header)
-                seq = 'N' * (row['start'] - 1)
-                seq += row['qseq'].replace('-', '')
-                seq += ('N' * (row['slen'] - row['end']))
-                f.write(seq + '\n')
-                contig_counter[segment] += 1
-        log.info(f'Wrote {contig_counter[segment]} contigs for segment {segment} to {contigs}')
-        # Generate multiple sequence alignments of trimmed/positioned contigs.
-        log.info(f'Aligning contigs for segment {segment}...')
-        aligned_contigs = os.path.join(outdir, out_name, f'{segment}_contigs.afa')
-        if contig_counter[segment] > 1:
-            log.info(f'Generating multiple sequence alignment for segment {segment}...')
-            terminal_command = (f'clustalw -INFILE={contigs} '
-                                f'-OUTFILE={aligned_contigs} -OUTPUT=FASTA')
-            process_name = f'clustalw_{segment}'
-            error_code = 9
-            run(terminal_command, outdir, out_name, process_name, error_code,
-                collect_garbage)
-        else:
-            log.info(f'Only one contig for segment {segment}, skipping alignment.')
-            shutil.copyfile(contigs, aligned_contigs)
-            
-        # Replace leading and trailing Ns with dots so that they are ignored
-        # when determining consensus bases.
-        seqs = {}
-        with open(aligned_contigs, 'r') as input_file:
-            for line in input_file:
-                if line[0] == '>':
-                    header = line.strip()
-                    seqs[header] = ''
-                else:
-                    seqs[header] += line.strip()
-        clean_seqs = []
-        for seq in seqs.values():
-            head_len = len(seq) - len(seq.lstrip('N-'))
-            tail_len = len(seq) - len(seq.rstrip('N-'))
-            seq = seq.strip('N-')
-            seq = ('.' * head_len) + seq
-            seq += ('.' * tail_len)
-            clean_seqs.append(seq)
-
-        # Check that all seqs in the multiple seq alignment are the
-        # same length. '''
-        alignment_lengths = set(len(seq) for seq in clean_seqs)
-        if len(alignment_lengths) > 1:
-            log.error(f'Multiple sequence alignment for {segment} '
-                      f'generated unequal alignment lengths! Aborting analysis.\n')
-            if collect_garbage:
-                garbage_collection(out_name)
-            error_code = 10
-            exit(error_code)
-
-        # Create consensus sequence of multiple seq alignments, i.e. the
-        # scaffolds.
-        alignment_length = list(alignment_lengths)[0]
-        scaffold_seq = ''
-        for i in range(alignment_length):
-            bases = Counter(seq[i] for seq in clean_seqs if seq[i] not in '.')
-            if bases.most_common(1) == []:
-                scaffold_seq += 'N'
-            elif bases.most_common(1)[0][1] / len(bases) > 0.5:
-                scaffold_seq += bases.most_common(1)[0][0]
-            else:
-                scaffold_seq += 'N'
-        scaffold_seqs[segment] = scaffold_seq
-
-    # Write out scaffolds.
-    segments = 'PB2 PB1 PA HA NP NA M NS'.split(' ')
-    segments = [segment for segment in segments if segment in scaffold_seqs]
-    scaffold_seqs = {segment: scaffold_seqs[segment] for segment in segments}
-    scaffolds = os.path.join(outdir, out_name, 'scaffolds.fa')
-    with open(scaffolds, 'w') as f:
-        for segment, seq in scaffold_seqs.items():
-            header = f'>{out_name}|{segment}_scaffold'
-            f.write(header + '\n')
-            f.write(seq + '\n')
-
-    log.info(f'Wrote {len(scaffold_seqs)} scaffolds to {scaffolds}')
-
-    return scaffold_seqs
 
 
 def blast_scaffolds(db, outdir, out_name, collect_garbage, threads):

@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 
+from collections import Counter
 from pathlib import Path
 from typing import List
 
@@ -18,7 +19,22 @@ import fluviewer.logging
 log = fluviewer.logging.get_logger(__name__, 'info')
 
 
-def run(terminal_command, outdir, out_name, process_name, error_code, collect_garbage):
+error_messages_by_code = {
+    1: 'Error creating output directory.',
+    2: 'Error running BBNorm.',
+    3: 'Error running SPAdes.',
+    4: 'No contigs assembled.',
+    5: 'Error running BLASTn.',
+    6: 'Error running BLASTn.',
+    7: 'No contigs aligned to reference sequences.',
+    8: 'Multiple subtypes detected for segment.',
+    9: 'Error running ClustalW.',
+    10: 'Error generating scaffold sequences.',
+    11: 'Error generating consensus sequences.',
+}
+
+
+def run(terminal_command, outdir, out_name, process_name, error_code):
     """
     A generalized function for running subprocesses, logging their output, and
     trapping erroneous exit statuses.
@@ -33,10 +49,8 @@ def run(terminal_command, outdir, out_name, process_name, error_code, collect_ga
     :type process_name: str
     :param error_code: Exit status if the subprocess fails.
     :type error_code: int
-    :param collect_garbage: Whether to remove intermediate files.
-    :type collect_garbage: bool
-    :return: None
-    :rtype: None
+    :return: Exit status of the subprocess.
+    :rtype: int
     """
     logs_dir = os.path.join(outdir, 'logs')
     os.makedirs(logs_dir, exist_ok=True)
@@ -62,72 +76,15 @@ def run(terminal_command, outdir, out_name, process_name, error_code, collect_ga
                 )
     except Exception as e:
         log.error(f'Error running subprocess {process_name}: {e}')
-        if collect_garbage:
-            garbage_collection(outdir, out_name)
-        exit(error_code)
+        return error_code
 
     return_code = complete_process.returncode
 
     if return_code != 0:
         log.error(f'Subprocess {process_name} failed (Exit status: {return_code})')
-        if collect_garbage:
-            garbage_collection(outdir, out_name)
-        exit(error_code)
+        return error_code
 
     return return_code
-
-
-def garbage_collection(outdir, out_name):
-    """
-    Clean up unneccessary intermediate files (many of which occupy
-    substantial amounts of storage).
-
-    :param outdir: Path to the output directory.
-    :type outdir: str
-    :param out_name: Name of the output subdirectory.
-    :type out_name: str
-    :return: None
-    """
-    if os.path.isdir(os.path.join(outdir, out_name, f'spades_output')):
-        shutil.rmtree(os.path.join(outdir, out_name, f'spades_output'))
-
-    files = [
-        'R1.fq',
-        'R2.fq',
-        'contigs_blast.tsv',
-        'scaffolds.fa',
-        'scaffolds_blast.tsv',
-        'alignment.sam',
-        'pileup.vcf',
-        'variants.bcf',
-        'variants.bcf.csi',
-        'low_cov.tsv',
-        'ambig.tsv',
-        'variants.tsv',
-        'masked.bed',
-        'reads_mapped.tsv',
-        'depth_of_cov_samtools.tsv',
-        'depth_of_cov_freebayes.tsv',
-    ]
-
-    bwa_suffixes = ['amb', 'ann', 'bwt', 'fai', 'pac', 'sa']
-    for suffix in bwa_suffixes:
-        files.append(f'{out_name}_mapping_refs.fa.{suffix}')
-
-    segments = 'PB2 PB1 PA HA NP NA M NS'.split(' ')
-    for segment in segments:
-        files += [
-            f'{segment}_contigs.fa',
-            f'{segment}_contigs.afa',
-            f'{segment}_contigs.dnd'
-        ]
-
-    for file in files:
-        file = os.path.join(out_name, file)
-        if os.path.isfile(file):
-            os.remove(file)
-            log.info(f'Removed intermediate file: {file}')
-
 
 
 def normalize_depth(
@@ -138,7 +95,6 @@ def normalize_depth(
         rev_reads_raw: Path,
         depth: int,
         max_memory: int,
-        collect_garbage: bool
 ):
     """
     BBNorm is run on the input reads to downsample regions of deep coverage
@@ -159,18 +115,20 @@ def normalize_depth(
     :type depth: int
     :param max_memory: Maximum memory to allocate to BBNorm.
     :type max_memory: int
-    :param collect_garbage: Whether to remove intermediate files.
-    :type collect_garbage: bool
     :return: Summary of the analysis.
     :rtype: dict
     """
     timestamp_analysis_start = datetime.datetime.now().isoformat()
     log.info('Normalizing depth of coverage and subsampling reads...')
-
     logs_dir = os.path.join(outdir, 'logs')
+    os.makedirs(logs_dir, exist_ok=True)
 
     input_reads_fwd = inputs.get('input_reads_fwd', None)
     input_reads_rev = inputs.get('input_reads_rev', None)
+    analysis_summary = {
+        'timestamp_analysis_start': timestamp_analysis_start,
+        'inputs': inputs,
+    }
     
     normalized_reads_fwd = os.path.join(outdir, f'{out_name}-normalized_R1.fastq')
     normalized_reads_rev = os.path.join(outdir, f'{out_name}-normalized_R2.fastq')
@@ -187,8 +145,13 @@ def normalize_depth(
     process_name = 'bbnorm'
     error_code = 2
 
-    return_code = run(terminal_command, outdir, out_name, process_name, error_code, collect_garbage)
-    
+    return_code = run(terminal_command, outdir, out_name, process_name, error_code)
+    if return_code != 0:
+        log.error(f'Error running BBNorm (Exit status: {return_code})')
+        analysis_summary['return_code'] = error_code
+        analysis_summary['error_message'] = error_messages_by_code[error_code]
+        return analysis_summary
+
     bbnorm_stderr_log_path = os.path.join(logs_dir, 'bbnorm_stderr.txt')
 
     parsed_bbnorm_log = parsers.parse_bbnorm_log(bbnorm_stderr_log_path)
@@ -216,6 +179,7 @@ def normalize_depth(
     }
 
     analysis_summary = {
+        'process_name': process_name,
         'timestamp_analysis_start': timestamp_analysis_start,
         'timestamp_analysis_complete': timestamp_analysis_complete,
         'return_code': return_code,
@@ -223,7 +187,7 @@ def normalize_depth(
         'outputs': outputs,
     }
 
-    with open(os.path.join(logs_dir, 'analysis_summary.json'), 'w') as f:
+    with open(os.path.join(outdir, 'analysis_summary.json'), 'w') as f:
         json.dump(analysis_summary, f, indent=4)
         f.write('\n')
 
@@ -234,7 +198,6 @@ def assemble_contigs(
         inputs: dict,
         outdir: Path,
         out_name: str,
-        collect_garbage: bool
 ):
     """
     Normalized, downsampled reads are assembled de novo into contigs
@@ -246,15 +209,19 @@ def assemble_contigs(
     :type outdir: Path
     :param out_name: Name used for outputs
     :type out_name: str
-    :param collect_garbage: Whether to remove intermediate files.
-    :type collect_garbage: bool
     :return: Summary of the analysis.
     :rtype: dict
     """
     log.info('Assembling reads into contigs...')
     timestamp_analysis_start = datetime.datetime.now().isoformat()
 
+    analysis_summary = {
+        'timestamp_analysis_start': timestamp_analysis_start,
+        'inputs': inputs,
+    }
+
     logs_dir = os.path.join(outdir, 'logs')
+    os.makedirs(logs_dir, exist_ok=True)
     
     spades_output = os.path.join(outdir, 'spades_output')
     fwd_reads = inputs.get('normalized_reads_fwd', None)
@@ -269,46 +236,46 @@ def assemble_contigs(
     error_code = 3
 
     script_file = os.path.join(outdir, f'{process_name}_script.sh')
-    return_code = run(terminal_command, outdir, out_name, process_name, error_code, collect_garbage)
+    return_code = run(terminal_command, outdir, out_name, process_name, error_code)
+    analysis_summary['return_code'] = return_code
     if not os.path.isfile(os.path.join(spades_output, 'contigs.fasta')):
         log.error('No contigs assembled! Aborting analysis.')
-        if collect_garbage:
-            garbage_collection(out_name)
         error_code = 4
-        exit(error_code)
-    else:
-        num_contigs = 0
-        with open(os.path.join(spades_output, 'contigs.fasta'), 'r') as f:
-            for line in f:
-                if line.startswith('>'):
-                    num_contigs += 1
-        log.info('Contigs assembled successfully.')
-        log.info(f'Assembled {num_contigs} contigs.')
+        analysis_summary['return_code'] = error_code
+        analysis_summary['error_message'] = error_messages_by_code[error_code]
+        analysis_summary['inputs'] = inputs
+        return analysis_summary
+
+    num_contigs = 0
+    src_contigs_path = os.path.join(spades_output, 'contigs.fasta')
+    dest_contigs_path = os.path.join(outdir, f'{out_name}_contigs.fasta')
+    shutil.copy(src_contigs_path, dest_contigs_path)
+    with open(dest_contigs_path, 'r') as f:
+        for line in f:
+            if line.startswith('>'):
+                num_contigs += 1
+    log.info('Contigs assembled successfully.')
+    log.info(f'Assembled {num_contigs} contigs.')
 
     timestamp_analysis_complete = datetime.datetime.now().isoformat()
 
     outputs = {
-        'contigs': os.path.abspath(os.path.join(spades_output, 'contigs.fasta')),
+        'contigs': os.path.abspath(dest_contigs_path),
     }
 
-    analysis_summary = {
-        'timestamp_analysis_start': timestamp_analysis_start,
-        'timestamp_analysis_complete': timestamp_analysis_complete,
-        'return_code': return_code,
-        'inputs': inputs,
-        'outputs': outputs,
-    }
+    analysis_summary['process_name'] = process_name
+    analysis_summary['timestamp_analysis_complete'] = timestamp_analysis_complete
+    analysis_summary['return_code'] = return_code
+    analysis_summary['outputs'] = outputs
 
-    with open(os.path.join(logs_dir, 'analysis_summary.json'), 'w') as f:
+    with open(os.path.join(outdir, 'analysis_summary.json'), 'w') as f:
         json.dump(analysis_summary, f, indent=4)
         f.write('\n')
 
     return analysis_summary
 
 
-
-
-def filter_contig_blast_results(blast_results, outdir, out_name, collect_garbage, identity, length):
+def filter_contig_blast_results(blast_results, outdir, out_name, identity, length):
     """
     Contigs alignments are filtered to discard spurious alignments.
 
@@ -330,8 +297,6 @@ def filter_contig_blast_results(blast_results, outdir, out_name, collect_garbage
     :type blast_results: pd.DataFrame
     :param out_name: Name used for outputs.
     :type out_name: str
-    :param collect_garbage: Whether to remove intermediate files.
-    :type collect_garbage: bool
     :param identity: Minimum sequence identity for BLASTn hits.
     :type identity: float
     :param length: Minimum alignment length for BLASTn hits.
@@ -352,8 +317,6 @@ def filter_contig_blast_results(blast_results, outdir, out_name, collect_garbage
 
     if len(filtered_blast_results) == 0:
         log.error(f'No contigs aligned to reference sequences! Aborting analysis.')
-        if collect_garbage:
-            garbage_collection(outdir, out_name)
         error_code = 7
         exit(error_code)
 
@@ -395,8 +358,6 @@ def filter_contig_blast_results(blast_results, outdir, out_name, collect_garbage
             segment_subtypes = ', '.join(segment_subtypes)
             log.error(f'Multiple subtypes detected for segment {segment} '
                       f'({segment_subtypes})! Aborting analysis.\n')
-            if collect_garbage:
-                garbage_collection(out_name)
             error_code = 8
             exit(error_code)
         else:
@@ -566,9 +527,7 @@ def filter_contig_blast_results(blast_results, outdir, out_name, collect_garbage
     return blast_results
 
 
-
-
-def blast_contigs(inputs, outdir, out_name, collect_garbage, db, threads, identity, length):
+def blast_contigs(inputs, outdir, out_name, threads, identity, length):
     """
     Contigs are aligned to reference sequences using BLASTn.
 
@@ -578,10 +537,6 @@ def blast_contigs(inputs, outdir, out_name, collect_garbage, db, threads, identi
     :type outdir: Path
     :param out_name: Name used for outputs.
     :type out_name: str
-    :param db: Path to the reference sequence database.
-    :type db: Path
-    :param collect_garbage: Whether to remove intermediate files.
-    :type collect_garbage: bool
     :param threads: Number of threads to use for BLASTn.
     :type threads: int
     :param identity: Minimum sequence identity for BLASTn hits.
@@ -597,7 +552,12 @@ def blast_contigs(inputs, outdir, out_name, collect_garbage, db, threads, identi
 
     timestamp_analysis_start = datetime.datetime.now().isoformat()
 
-    db = os.path.abspath(db)
+    analysis_summary = {
+        'timestamp_analysis_start': timestamp_analysis_start,
+        'inputs': inputs,
+    }
+
+    db = os.path.abspath(inputs.get('database', None))
     blast_output_path = os.path.join(outdir, f'{out_name}_contigs_blast.tsv')
     contigs = inputs.get('contigs', None)
 
@@ -624,7 +584,7 @@ def blast_contigs(inputs, outdir, out_name, collect_garbage, db, threads, identi
 
     process_name = 'blastn_contigs'
     error_code = 6
-    return_code = run(terminal_command, outdir, out_name, process_name, error_code, collect_garbage)
+    return_code = run(terminal_command, outdir, out_name, process_name, error_code)
 
     blast_results = pd.read_csv(blast_output_path, sep='\t')
 
@@ -632,16 +592,16 @@ def blast_contigs(inputs, outdir, out_name, collect_garbage, db, threads, identi
     log.info('Contigs aligned to reference sequences.')
     log.info(f'Found {total_num_blast_results} total matches.')
 
-    filtered_blast_results = filter_contig_blast_results(blast_results, outdir, out_name, collect_garbage, identity, length)
+    filtered_blast_results = filter_contig_blast_results(blast_results, outdir, out_name, identity, length)
 
     timestamp_analysis_complete = datetime.datetime.now().isoformat()
 
     if len(filtered_blast_results) == 0:
         log.error(f'No contigs aligned to reference sequences! Aborting analysis.')
-        if collect_garbage:
-            garbage_collection(outdir, out_name)
         error_code = 7
-        exit(error_code)
+        analysis_summary['return_code'] = error_code
+        analysis_summary['error_message'] = error_messages_by_code[error_code]
+        return analysis_summary
 
     num_filtered_blast_results = len(filtered_blast_results)
     log.info(f'Remaining contig alignments after filtering: {num_filtered_blast_results}.')
@@ -650,16 +610,235 @@ def blast_contigs(inputs, outdir, out_name, collect_garbage, db, threads, identi
     filtered_blast_results.to_csv(filtered_blast_output_path, sep='\t', index=False)
 
     outputs = {
-        'blast_results': os.path.abspath(blast_output_path),
-        'filtered_blast_results': os.path.abspath(filtered_blast_output_path),
+        'all_contig_blast_results': os.path.abspath(blast_output_path),
+        'filtered_contig_blast_results': os.path.abspath(filtered_blast_output_path),
     }
 
     analysis_summary = {
+        'process_name': process_name,
         'timestamp_analysis_start': timestamp_analysis_start,
         'timestamp_analysis_complete': timestamp_analysis_complete,
         'return_code': return_code,
         'inputs': inputs,
         'outputs': outputs,
     }
+    with open(os.path.join(outdir, 'analysis_summary.json'), 'w') as f:
+        json.dump(analysis_summary, f, indent=4)
+        f.write('\n')
 
+    return analysis_summary
+
+
+def make_scaffold_seqs(inputs, outdir, out_name):
+    """
+    A scaffold sequence is created for each genome segment by joining and
+    collapsing all the contigs describing that segment.
+
+    Unaligned leading and trailing sequences are trimmed from the
+    contigs. Next, leading and trailing Ns are added to the contig so that it is
+    properly positioned within the segment (based on the subject-start and
+    subject-end coordinates of its alignment to the selected reference sequence).
+    Next, clustalW is used to generate a multiple sequence alignment of the
+    trimmed, positioned contigs. This multiple sequence alignment is used to
+    generate a consensus sequence of the regions of the segment covered by
+    contigs.
+
+    :param inputs: Dictionary of input files, with keys 'filtered_contig_blast_results'.
+    :type inputs: dict
+    :param outdir: Path to the output directory.
+    :type outdir: Path
+    :param out_name: Name used for outputs.
+    :type out_name: str
+    :return: Summary of the analysis.
+    :rtype: dict
+    """
+    log.info('Creating scaffolds...')
+    log_dir = os.path.join(outdir, 'logs')
+    os.makedirs(log_dir, exist_ok=True)
+    
+    timestamp_analysis_start = datetime.datetime.now().isoformat()
+    analysis_summary = {
+        'timestamp_analysis_start': timestamp_analysis_start,
+        'inputs': inputs,
+    }
+
+    outputs = {}
+    
+    filtered_contig_blast_results_path = inputs.get('filtered_contig_blast_results', None)
+    blast_results = pd.read_csv(filtered_contig_blast_results_path, sep='\t')
+
+    # Make sure contigs are all in the forward orientation.
+    rev_comp_bases = {'A': 'T',
+                      'T': 'A',
+                      'G': 'C',
+                      'C': 'G',
+                      'N': 'N',
+                      '-': '-',
+                      'W': 'W',
+                      'S': 'S',
+                      'M': 'K',
+                      'K': 'M',
+                      'R': 'Y',
+                      'Y': 'R',
+                      'B': 'V',
+                      'D': 'H',
+                      'H': 'D',
+                      'V': 'B'}
+
+    rev_comp_seq = lambda seq: ''.join(rev_comp_bases[base]
+                                       for base in seq[::-1])
+    get_start = lambda row: min([row['sstart'], row['send']])
+
+    blast_results['start'] = blast_results.apply(get_start, axis=1)
+    get_end = lambda row: max([row['sstart'], row['send']])
+    blast_results['end'] = blast_results.apply(get_end, axis=1)
+
+    def flip_qseq(row):
+        """
+        Flip the query sequence if the alignment is in the reverse orientation.
+
+        :param row: BLASTn result.
+        :type row: pd.Series
+        :return: Flipped query sequence.
+        :rtype: str
+        """
+        if row['sstart'] > row['send']:
+            log.info(f'Flipping seq for contig: {row["qseqid"]}')
+            return rev_comp_seq(row['qseq'])
+        else:
+            return row['qseq']
+
+    blast_results['qseq'] = blast_results.apply(flip_qseq, axis=1)
+
+    def flip_sseq(row):
+        """
+        Flip the subject sequence if the alignment is in the reverse orientation.
+
+        :param row: BLASTn result.
+        :type row: pd.Series
+        :return: Flipped subject sequence.
+        :rtype: str
+        """
+        if row['sstart'] > row['send']:
+            log.info(f'Flipping seq for ref: {row["sseqid"]}')
+            return rev_comp_seq(row['sseq'])
+        else:
+            return row['sseq']
+
+    blast_results['sseq'] = blast_results.apply(flip_sseq, axis=1)
+    blast_results_flipped_path = os.path.join(outdir, f'{out_name}_contigs_blast_filtered_flipped.tsv')
+    blast_results.to_csv(blast_results_flipped_path, sep='\t', index=False)
+    log.info(f'Wrote flipped BLASTn results to {blast_results_flipped_path}')
+    outputs['flipped_contig_blast_results'] = os.path.abspath(blast_results_flipped_path)
+
+    clustalw_return_code = None
+    # Trim contigs based on their alignments to reference sequences. Also
+    # add leading and trailing Ns to contig so that it is properly positioned
+    # within the genome segment.
+    segments = blast_results['segment'].unique()
+    contig_counter = {segment: 0 for segment in segments}
+    scaffold_seqs = {}
+    for segment in segments:
+        contigs = os.path.join(outdir, f'{segment}_contigs.fa')
+        with open(contigs, 'w') as f:
+            contig_results = blast_results[blast_results['segment']==segment]
+            for index, row in contig_results.iterrows():
+                header = f'>{segment}_contig_{contig_counter[segment]}\n'
+                f.write(header)
+                seq = 'N' * (row['start'] - 1)
+                seq += row['qseq'].replace('-', '')
+                seq += ('N' * (row['slen'] - row['end']))
+                f.write(seq + '\n')
+                contig_counter[segment] += 1
+        log.info(f'Wrote {contig_counter[segment]} contigs for segment {segment} to {contigs}')
+        outputs[f'{segment}_contigs'] = os.path.abspath(contigs)
+        # Generate multiple sequence alignments of trimmed/positioned contigs.
+        log.info(f'Aligning contigs for segment {segment}...')
+        aligned_contigs = os.path.join(outdir, f'{segment}_contigs.afa')
+
+        if contig_counter[segment] > 1:
+            log.info(f'Generating multiple sequence alignment for segment {segment}...')
+            terminal_command = (f'clustalw -INFILE={contigs} '
+                                f'-OUTFILE={aligned_contigs} -OUTPUT=FASTA')
+            process_name = f'clustalw_{segment}'
+            error_code = 9
+            clustalw_return_code = run(terminal_command, outdir, out_name, process_name, error_code)
+        else:
+            log.info(f'Only one contig for segment {segment}, skipping alignment.')
+            shutil.copyfile(contigs, aligned_contigs)
+
+        outputs[f'{segment}_aligned_contigs'] = os.path.abspath(aligned_contigs)
+
+        # Replace leading and trailing Ns with dots so that they are ignored
+        # when determining consensus bases.
+        seqs = {}
+        with open(aligned_contigs, 'r') as input_file:
+            for line in input_file:
+                if line[0] == '>':
+                    header = line.strip()
+                    seqs[header] = ''
+                else:
+                    seqs[header] += line.strip()
+        clean_seqs = []
+        for seq in seqs.values():
+            head_len = len(seq) - len(seq.lstrip('N-'))
+            tail_len = len(seq) - len(seq.rstrip('N-'))
+            seq = seq.strip('N-')
+            seq = ('.' * head_len) + seq
+            seq += ('.' * tail_len)
+            clean_seqs.append(seq)
+
+        # Check that all seqs in the multiple seq alignment are the
+        # same length. '''
+        alignment_lengths = set(len(seq) for seq in clean_seqs)
+        if len(alignment_lengths) > 1:
+            log.error(f'Multiple sequence alignment for {segment} '
+                      f'generated unequal alignment lengths! Aborting analysis.\n')
+            error_code = 10
+            analysis_summary['return_code'] = error_code
+            analysis_summary['error_message'] = error_messages_by_code[error_code]
+            return analysis_summary
+        elif len(alignment_lengths) == 0:
+            log.error(f'No sequences in the multiple sequence alignment for {segment}! Aborting analysis.\n')
+            error_code = 11
+            analysis_summary['return_code'] = error_code
+            analysis_summary['error_message'] = error_messages_by_code[error_code]
+            return analysis_summary
+
+        # Create consensus sequence of multiple seq alignments, i.e. the
+        # scaffolds.
+        alignment_length = list(alignment_lengths)[0]
+        scaffold_seq = ''
+        for i in range(alignment_length):
+            bases = Counter(seq[i] for seq in clean_seqs if seq[i] not in '.')
+            if bases.most_common(1) == []:
+                scaffold_seq += 'N'
+            elif bases.most_common(1)[0][1] / len(bases) > 0.5:
+                scaffold_seq += bases.most_common(1)[0][0]
+            else:
+                scaffold_seq += 'N'
+        scaffold_seqs[segment] = scaffold_seq
+
+    # Write out scaffolds.
+    segments = 'PB2 PB1 PA HA NP NA M NS'.split(' ')
+    segments = [segment for segment in segments if segment in scaffold_seqs]
+    scaffold_seqs = {segment: scaffold_seqs[segment] for segment in segments}
+    scaffolds = os.path.join(outdir, out_name, 'scaffolds.fa')
+    with open(scaffolds, 'w') as f:
+        for segment, seq in scaffold_seqs.items():
+            header = f'>{out_name}|{segment}_scaffold'
+            f.write(header + '\n')
+            f.write(seq + '\n')
+
+    outputs['scaffolds'] = os.path.abspath(scaffolds)
+
+    log.info(f'Wrote {len(scaffold_seqs)} scaffolds to {scaffolds}')
+
+    timestamp_analysis_complete = datetime.datetime.now().isoformat()
+
+    analysis_summary['process_name'] = 'make_scaffold_seqs'
+    analysis_summary['timestamp_analysis_complete'] = timestamp_analysis_complete
+    analysis_summary['return_code'] = clustalw_return_code
+    analysis_summary['outputs'] = outputs
+    
     return analysis_summary
