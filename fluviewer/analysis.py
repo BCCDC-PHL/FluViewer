@@ -665,7 +665,11 @@ def make_scaffold_seqs(inputs, outdir, out_name):
     outputs = {}
     
     filtered_contig_blast_results_path = inputs.get('filtered_contig_blast_results', None)
-    blast_results = pd.read_csv(filtered_contig_blast_results_path, sep='\t')
+    
+    # The 'segment' field of the filtered blast results may include 'NA' values, which
+    # represent the Neuraminidase (NA) segment.
+    # Disable the na_filter option to prevent pandas from converting 'NA' to NaN.
+    blast_results = pd.read_csv(filtered_contig_blast_results_path, sep='\t', na_filter=False)
 
     # Make sure contigs are all in the forward orientation.
     rev_comp_bases = {'A': 'T',
@@ -727,6 +731,8 @@ def make_scaffold_seqs(inputs, outdir, out_name):
 
     blast_results['sseq'] = blast_results.apply(flip_sseq, axis=1)
     blast_results_flipped_path = os.path.join(outdir, f'{out_name}_contigs_blast_filtered_flipped.tsv')
+    # Write out flipped BLASTn results. Make sure specify that 'segment' is a string.
+    # Otherwise, pandas will convert 'NA' to NaN.
     blast_results.to_csv(blast_results_flipped_path, sep='\t', index=False)
     log.info(f'Wrote flipped BLASTn results to {blast_results_flipped_path}')
     outputs['flipped_contig_blast_results'] = os.path.abspath(blast_results_flipped_path)
@@ -825,16 +831,16 @@ def make_scaffold_seqs(inputs, outdir, out_name):
     segments = 'PB2 PB1 PA HA NP NA M NS'.split(' ')
     segments = [segment for segment in segments if segment in scaffold_seqs]
     scaffold_seqs = {segment: scaffold_seqs[segment] for segment in segments}
-    scaffolds = os.path.join(outdir, out_name, 'scaffolds.fa')
-    with open(scaffolds, 'w') as f:
+    scaffolds_path = os.path.join(outdir, f'{out_name}_scaffolds.fa')
+    with open(scaffolds_path, 'w') as f:
         for segment, seq in scaffold_seqs.items():
             header = f'>{out_name}|{segment}_scaffold'
             f.write(header + '\n')
             f.write(seq + '\n')
 
-    outputs['scaffolds'] = os.path.abspath(scaffolds)
+    outputs['scaffolds'] = os.path.abspath(scaffolds_path)
 
-    log.info(f'Wrote {len(scaffold_seqs)} scaffolds to {scaffolds}')
+    log.info(f'Wrote {len(scaffold_seqs)} scaffolds to {scaffolds_path}')
 
     timestamp_analysis_complete = datetime.datetime.now().isoformat()
 
@@ -844,3 +850,91 @@ def make_scaffold_seqs(inputs, outdir, out_name):
     analysis_summary['outputs'] = outputs
     
     return analysis_summary
+
+
+def blast_scaffolds(inputs, outdir, out_name, threads):
+    """
+    Scaffold sequences are aligned to reference sequences using BLASTn.
+
+    :param inputs: Dictionary of input files, with keys 'scaffolds' and 'database'.
+    :type inputs: dict
+    :param outdir: Path to the output directory.
+    :type outdir: Path
+    :param out_name: Name used for outputs.
+    :type out_name: str
+    :param threads: Number of threads to use for BLASTn.
+    :type threads: int
+    :return: BLASTn results.
+    """
+    log.info('BLASTing scaffolds against reference sequences...')
+    log_dir = os.path.join(outdir, 'logs')
+    os.makedirs(log_dir, exist_ok=True)
+
+    timestamp_analysis_start = datetime.datetime.now().isoformat()
+
+    analysis_summary = {
+        'timestamp_analysis_start': timestamp_analysis_start,
+        'inputs': inputs,
+    }
+    db = inputs.get('database', None)
+    
+    num_db_seqs = sum(line[0] == '>' for line in open(db, 'r').readlines())
+    missing_db_files = []
+    db = os.path.abspath(db)
+    for suffix in ['nhr', 'nin', 'nsq']:
+        db_file = db + '.' + suffix
+        if not os.path.exists(db_file):
+            missing_db_files.append(db_file)
+
+    if missing_db_files:
+        terminal_command = (f'makeblastdb -in {db} -dbtype nucl')
+        process_name = 'makeblastdb_scaffolds'
+        error_code = 11
+        run(terminal_command, outdir, out_name, process_name, error_code)
+    else:
+        log.info(f'BLAST database already exists for {db} Skipping BLAST db creation.')
+
+    scaffolds_path = inputs.get('scaffolds', None)
+    blast_output = os.path.join(outdir, f'{out_name}_scaffolds_blast.tsv')
+    cols = [
+        'qseqid',
+        'sseqid',
+        'bitscore',
+        'sstart',
+        'send',
+        'qseq',
+        'sseq'
+    ]
+    cols_str = ' '.join(cols)
+    with open(blast_output, 'w') as f:
+        f.write('\t'.join(cols) + '\n')        
+    terminal_command = (f'blastn -query {scaffolds_path} -db {db} '
+                        f'-num_threads {threads} -max_target_seqs {num_db_seqs} '
+                        f'-outfmt "6 {cols_str}" >> {blast_output}')
+    process_name = 'blastn_scaffolds'
+    error_code = 12
+    return_code = run(terminal_command, outdir, out_name, process_name, error_code)
+    if return_code != 0:
+        log.error(f'Error running BLASTn (Exit status: {return_code})')
+        analysis_summary['return_code'] = error_code
+        analysis_summary['error_message'] = error_messages_by_code[error_code]
+        return analysis_summary
+
+    blast_results = pd.read_csv(blast_output, names=cols, sep='\t')
+    num_blast_results = len(blast_results)
+    if num_blast_results == 0:
+        log.error(f'No scaffolds aligned to reference sequences! '
+                  f'Aborting analysis.\n')
+        if collect_garbage:
+            garbage_collection(out_name)
+        error_code = 13
+        exit(error_code)
+    else:
+        log.info('Scaffolds aligned to reference sequences.')
+        log.info(f'Found {num_blast_results} total matches.')
+        for segment in blast_results['qseqid'].unique():
+            segment_results = blast_results[blast_results['qseqid']==segment]
+            ref_seq = segment_results['sseqid'].values[0]
+            log.info(f'Selected reference sequence for segment {segment}: {ref_seq}')
+
+    return blast_results

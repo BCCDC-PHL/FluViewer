@@ -234,6 +234,19 @@ def main():
         log.error(f'Error code: {make_scaffold_seqs_analysis_summary["return_code"]}')
         exit(make_scaffold_seqs_analysis_summary['return_code'])
 
+    blast_scaffolds_inputs = {
+        'scaffolds': make_scaffold_seqs_analysis_summary['outputs']['scaffolds'],
+        'database': os.path.abspath(args.database),
+    }
+    blast_scaffolds_analysis_summary = analysis.blast_scaffolds(
+        blast_scaffolds_inputs,
+        args.outdir,
+        args.output_name,
+        args.threads,
+    )
+
+    filtered_scaffold_blast_results = filter_scaffold_blast_results(scaffold_blast_results)
+
     outputs_to_publish = {
         'scaffolds': os.path.join(args.outdir),
     }
@@ -242,19 +255,6 @@ def main():
         dest_path = os.path.join(output_dir, os.path.basename(src_path))
         shutil.copy(src_path, dest_path)
         log.info(f'Published output: {output_name} -> {dest_path}')
-    
-    print(json.dumps(make_scaffold_seqs_analysis_summary, indent=4))
-    exit()
-    
-
-    scaffold_blast_results = blast_scaffolds(
-        args.database,
-        args.outdir,
-        args.output_name,
-        args.threads,
-    )
-
-    filtered_scaffold_blast_results = filter_scaffold_blast_results(scaffold_blast_results)
     
     log.info(f'Analysis stage complete: {current_analysis_stage}')
 
@@ -344,74 +344,6 @@ def main():
 
 
 
-
-
-
-def blast_scaffolds(db, outdir, out_name, collect_garbage, threads):
-    """
-    Scaffold sequences are aligned to reference sequences using BLASTn.
-
-    :param db: Path to the reference sequence database.
-    :type db: Path
-    :param outdir: Path to the output directory.
-    :type outdir: Path
-    :param out_name: Name used for outputs.
-    :type out_name: str
-    :param collect_garbage: Whether to remove intermediate files.
-    :type collect_garbage: bool
-    :param threads: Number of threads to use for BLASTn.
-    """
-    log.info('Aligning scaffolds to reference sequences...')
-    num_db_seqs = sum(line[0] == '>' for line in open(db, 'r').readlines())
-    missing_db_files = []
-    db = os.path.abspath(db)
-    for suffix in ['nhr', 'nin', 'nsq']:
-        db_file = db + '.' + suffix
-        if not os.path.exists(db_file):
-            missing_db_files.append(db_file)
-
-    if missing_db_files:
-        terminal_command = (f'makeblastdb -in {db} -dbtype nucl')
-        process_name = 'makeblastdb_scaffolds'
-        error_code = 11
-        run(terminal_command, outdir, out_name, process_name, error_code,
-            collect_garbage)
-    scaffolds = os.path.join(outdir, out_name, 'scaffolds.fa')
-    blast_output = os.path.join(outdir, out_name, 'scaffolds_blast.tsv')
-    cols = [
-        'qseqid',
-        'sseqid',
-        'bitscore',
-        'sstart',
-        'send',
-        'qseq',
-        'sseq'
-    ]
-    cols_str = ' '.join(cols)
-    terminal_command = (f'blastn -query {scaffolds} -db {db} '
-                        f'-num_threads {threads} -max_target_seqs {num_db_seqs} '
-                        f'-outfmt "6 {cols_str}" > {blast_output}')
-    process_name = 'blastn_scaffolds'
-    error_code = 12
-    run(terminal_command, outdir, out_name, process_name, error_code, collect_garbage)
-    blast_results = pd.read_csv(blast_output, names=cols, sep='\t')
-    num_blast_results = len(blast_results)
-    if num_blast_results == 0:
-        log.error(f'No scaffolds aligned to reference sequences! '
-                  f'Aborting analysis.\n')
-        if collect_garbage:
-            garbage_collection(out_name)
-        error_code = 13
-        exit(error_code)
-    else:
-        log.info('Scaffolds aligned to reference sequences.')
-        log.info(f'Found {num_blast_results} total matches.')
-        for segment in blast_results['qseqid'].unique():
-            segment_results = blast_results[blast_results['qseqid']==segment]
-            ref_seq = segment_results['sseqid'].values[0]
-            log.info(f'Selected reference sequence for segment {segment}: {ref_seq}')
-
-    return blast_results
 
 
 def filter_scaffold_blast_results(blast_results):
