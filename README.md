@@ -12,7 +12,7 @@ This codebase is derived from [KevinKuchinski/FluViewer](https://github.com/Kevi
 
 1. **Assemble Contigs**: The normalized/downsampled reads are assembled de novo into contigs with the [spades](https://github.com/ablab/spades) assembler.
 
-2. **Blast Contigs**: The contigs are then aligned to a database of IAV reference sequences using [BLAST](http://blast.ncbi.nlm.nih.gov/Blast.cgi?PAGE_TYPE=BlastDocs).
+2. **BLAST Contigs**: The contigs are then aligned to a database of IAV reference sequences using [BLAST](http://blast.ncbi.nlm.nih.gov/Blast.cgi?PAGE_TYPE=BlastDocs).
 These alignments are used to trim contigs and roughly position them within their respective genome segment.
 
 3. **Scaffolding**: A multiple sequencing alignment is conducted on the trimmed/positioned contigs using [clustalw](http://www.clustal.org), generating scaffold sequences for each IAV genome segment.
@@ -27,6 +27,29 @@ These best matches are used to fill in any missing regions in the scaffold, crea
 
 7. **Summary Reporting**: Summary reports and plots are generated.
 
+### Analysis Summaries
+
+Information is passed between analysis stage via 'analysis summaries'. These are implemented as python dictionaries, with the following structure:
+
+```json
+{
+  "process_name": "bbnorm",
+  "timestamp_analysis_start": "2024-06-11T11:28:37.142158",
+  "timestamp_analysis_complete": "2024-06-11T11:29:03.860329",
+  "return_code": 0,
+  "inputs": {
+    "input_reads_fwd": "/path/to/sample-01_R1.fastq.gz",
+    "input_reads_rev": "/path/to/sample-01_R2.fastq.gz"
+  },
+  "outputs": {
+    "normalized_reads_fwd": "/path/to/outdir/analysis_by_stage/00_normalize_depth/sample-01-normalized_R1.fastq.gz",
+    "normalized_reads_rev": "/path/to/outdir/analysis_by_stage/00_normalize_depth/sample-01-normalized_R2.fastq.gz",
+  }
+}
+```
+
+Each stage selects its inputs from the `outputs` of the previous stages's analysis summary.
+
 ### Analysis Stage Diagram
 
 ```mermaid
@@ -35,6 +58,7 @@ flowchart TD
   reverse_reads --> normalization
   normalization --> normalization_analysis_summary(Analysis Summary)
   normalization_analysis_summary --> assemble_contigs(Assemble Contigs)
+  fluviewer_db --> blast_contigs(BLAST Contigs)
 ```
 
 ## Installation
