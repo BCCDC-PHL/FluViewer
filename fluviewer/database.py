@@ -1,11 +1,11 @@
+import logging
 import os
 
 from collections import Counter
 from math import ceil, log10
 
-import fluviewer.logging
 
-log = fluviewer.logging.get_logger(__name__, 'info')
+log = logging.getLogger(__name__)
 
 
 def check_database(db, outdir, out_name):

@@ -1,3 +1,4 @@
+import logging
 import os
 import datetime
 
@@ -5,9 +6,9 @@ import pandas as pd
 import numpy as np
 
 from fluviewer.analysis import run
-import fluviewer.logging
 
-log = fluviewer.logging.get_logger(__name__, 'info')
+
+log = logging.getLogger(__name__)
 
 
 def write_report(inputs, outdir, out_name):

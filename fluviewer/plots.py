@@ -1,3 +1,4 @@
+import logging
 import os
 import datetime
 
@@ -7,11 +8,10 @@ import pandas as pd
 import seaborn as sb
 import matplotlib.pyplot as plt
 
-import fluviewer.logging
-
 from fluviewer.analysis import run
 
-log = fluviewer.logging.get_logger(__name__, 'info')
+
+log = logging.getLogger(__name__)
 
 def make_plots(inputs, outdir, out_name):
     """

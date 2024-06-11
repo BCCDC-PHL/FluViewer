@@ -13,10 +13,9 @@ from typing import List
 import pandas as pd
 
 from fluviewer import parsers
-import fluviewer.logging
 
 
-log = fluviewer.logging.get_logger(__name__, 'info')
+log = logging.getLogger(__name__)
 
 
 error_messages_by_code = {

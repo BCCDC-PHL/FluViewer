@@ -16,14 +16,14 @@ import pandas as pd
 from . import __version__
 
 from . import cli_args
+from . import logging_config
 from . import database
 from . import analysis
 from . import report
 from . import plots
-import fluviewer.logging
 
-log = fluviewer.logging.get_logger(__name__, 'info')
 
+log = logging.getLogger(__name__)
 
 def main():
     version = __version__
@@ -32,16 +32,25 @@ def main():
     try:
         args = cli_args.validate_args(args)
     except ValueError as e:
-        log.error(e)
+        print(f'Error: {e}', sys.stderr)
         exit(1)
 
-    try:
-        level = getattr(logging, args.log_level.upper())
-        log.setLevel(level)
-    except AttributeError:
-        log.error(f"Invalid log level: {level}")
-        log.setLevel(logging.INFO)
     
+    if not os.path.exists(args.outdir):
+        os.makedirs(args.outdir)
+    else:
+        print(f'Output directory already exists: {args.outdir}', sys.stderr)
+        exit(1)
+
+    log_level = getattr(logging, args.log_level.upper())
+    print(log_level)
+    if not isinstance(log_level, int):
+        raise ValueError(f'Invalid log level: {args.log_level}')
+
+    logs_dir = os.path.join(args.outdir, 'logs')
+    os.makedirs(logs_dir, exist_ok=True)
+    log_file = os.path.join(logs_dir, 'fluviewer.log')
+    logging_config.configure_logging(log_level, log_file)
 
     log.info(f'BCCDC-PHL/FluViewer v{version}')
     version_split = version.split('-')
@@ -65,14 +74,7 @@ def main():
     log.info(f"Target depth for pre-normalization of reads: {args.target_depth}")
     log.info(f"Coverage depth limit for variant calling: {args.coverage_limit}")
     
-
-    if not os.path.exists(args.outdir):
-        os.makedirs(args.outdir)
-        log.info(f'Created output directory: {args.outdir}')
-    else:
-        log.error(f'Output directory already exists: {args.outdir}')
-        exit(1)
-
+    
     database.check_database(
         args.db,
         args.outdir,
@@ -123,6 +125,8 @@ def main():
         log.error(f'Error code: {normalize_depth_analysis_summary["return_code"]}')
         exit(normalize_depth_analysis_summary['return_code'])
 
+    #
+    # Publish outputs and logs
     outputs_to_publish = {
     }
     for output_name, output_dir in outputs_to_publish.items():
@@ -130,6 +134,15 @@ def main():
         dest_path = os.path.join(output_dir, os.path.basename(src_path))
         shutil.copy(src_path, dest_path)
         log.info(f'Published output: {output_name} -> {dest_path}')
+
+    analysis_stage_logs_src_dir = os.path.join(current_analysis_stage_outdir, 'logs')
+    analysis_stage_logs_dest_dir = os.path.join(logs_dir, os.path.basename(current_analysis_stage_outdir))
+    os.makedirs(analysis_stage_logs_dest_dir)
+    for log_file in os.listdir(analysis_stage_logs_src_dir):
+        src_path = os.path.join(analysis_stage_logs_src_dir, log_file)
+        dest_path = os.path.join(analysis_stage_logs_dest_dir, log_file)
+        shutil.copy(src_path, dest_path)
+        log.info(f'Published log file: {log_file} -> {dest_path}')
 
     log.info(f'Analysis stage complete: {current_analysis_stage}')
 
@@ -159,6 +172,8 @@ def main():
         log.error(f'Error code: {assemble_contigs_analysis_summary["return_code"]}')
         exit(assemble_contigs_analysis_summary['return_code'])
 
+    #
+    # Publish outputs and logs
     outputs_to_publish = {
     }
     for output_name, output_dir in outputs_to_publish.items():
@@ -166,6 +181,15 @@ def main():
         dest_path = os.path.join(output_dir, os.path.basename(src_path))
         shutil.copy(src_path, dest_path)
         log.info(f'Published output: {output_name} -> {dest_path}')
+
+    analysis_stage_logs_src_dir = os.path.join(current_analysis_stage_outdir, 'logs')
+    analysis_stage_logs_dest_dir = os.path.join(logs_dir, os.path.basename(current_analysis_stage_outdir))
+    os.makedirs(analysis_stage_logs_dest_dir)
+    for log_file in os.listdir(analysis_stage_logs_src_dir):
+        src_path = os.path.join(analysis_stage_logs_src_dir, log_file)
+        dest_path = os.path.join(analysis_stage_logs_dest_dir, log_file)
+        shutil.copy(src_path, dest_path)
+        log.info(f'Published log file: {log_file} -> {dest_path}')
 
 
     log.info(f'Analysis stage complete: {current_analysis_stage}')
@@ -197,6 +221,8 @@ def main():
         log.error(f'Error code: {blast_contigs_analysis_summary["return_code"]}')
         exit(blast_contigs_analysis_summary['return_code'])
 
+    #
+    # Publish outputs and logs
     outputs_to_publish = {
     }
     for output_name, output_dir in outputs_to_publish.items():
@@ -204,6 +230,15 @@ def main():
         dest_path = os.path.join(output_dir, os.path.basename(src_path))
         shutil.copy(src_path, dest_path)
         log.info(f'Published output: {output_name} -> {dest_path}')
+
+    analysis_stage_logs_src_dir = os.path.join(current_analysis_stage_outdir, 'logs')
+    analysis_stage_logs_dest_dir = os.path.join(logs_dir, os.path.basename(current_analysis_stage_outdir))
+    os.makedirs(analysis_stage_logs_dest_dir)
+    for log_file in os.listdir(analysis_stage_logs_src_dir):
+        src_path = os.path.join(analysis_stage_logs_src_dir, log_file)
+        dest_path = os.path.join(analysis_stage_logs_dest_dir, log_file)
+        shutil.copy(src_path, dest_path)
+        log.info(f'Published log file: {log_file} -> {dest_path}')
 
     log.info(f'Analysis stage complete: {current_analysis_stage}')
 
@@ -243,6 +278,8 @@ def main():
         args.threads,
     )
 
+    #
+    # Publish outputs and logs
     outputs_to_publish = {
     }
     for output_name, output_dir in outputs_to_publish.items():
@@ -253,6 +290,15 @@ def main():
         dest_path = os.path.join(output_dir, os.path.basename(src_path))
         shutil.copy(src_path, dest_path)
         log.info(f'Published output: {output_name} -> {dest_path}')
+
+    analysis_stage_logs_src_dir = os.path.join(current_analysis_stage_outdir, 'logs')
+    analysis_stage_logs_dest_dir = os.path.join(logs_dir, os.path.basename(current_analysis_stage_outdir))
+    os.makedirs(analysis_stage_logs_dest_dir)
+    for log_file in os.listdir(analysis_stage_logs_src_dir):
+        src_path = os.path.join(analysis_stage_logs_src_dir, log_file)
+        dest_path = os.path.join(analysis_stage_logs_dest_dir, log_file)
+        shutil.copy(src_path, dest_path)
+        log.info(f'Published log file: {log_file} -> {dest_path}')
     
     log.info(f'Analysis stage complete: {current_analysis_stage}')
 
@@ -283,6 +329,8 @@ def main():
         log.error(f'Error code: {map_reads_analysis_summary["return_code"]}')
         exit(map_reads_analysis_summary['return_code'])
 
+    #
+    # Publish outputs and logs
     outputs_to_publish = {
         'mapping_refs': os.path.join(args.outdir),
         'alignment': os.path.join(args.outdir),
@@ -293,6 +341,15 @@ def main():
         dest_path = os.path.join(output_dir, os.path.basename(src_path))
         shutil.copy(src_path, dest_path)
         log.info(f'Published output: {output_name} -> {dest_path}')
+
+    analysis_stage_logs_src_dir = os.path.join(current_analysis_stage_outdir, 'logs')
+    analysis_stage_logs_dest_dir = os.path.join(logs_dir, os.path.basename(current_analysis_stage_outdir))
+    os.makedirs(analysis_stage_logs_dest_dir)
+    for log_file in os.listdir(analysis_stage_logs_src_dir):
+        src_path = os.path.join(analysis_stage_logs_src_dir, log_file)
+        dest_path = os.path.join(analysis_stage_logs_dest_dir, log_file)
+        shutil.copy(src_path, dest_path)
+        log.info(f'Published log file: {log_file} -> {dest_path}')
 
     log.info(f'Analysis stage complete: {current_analysis_stage}')
 
@@ -330,6 +387,8 @@ def main():
         log.error(f'Error code: {call_variants_analysis_summary["return_code"]}')
         exit(call_variants_analysis_summary['return_code'])
 
+    #
+    # Publish outputs and logs
     outputs_to_publish = {
         'variants_filtered': os.path.join(args.outdir),
     }
@@ -338,6 +397,15 @@ def main():
         dest_path = os.path.join(output_dir, os.path.basename(src_path))
         shutil.copy(src_path, dest_path)
         log.info(f'Published output: {output_name} -> {dest_path}')
+
+    analysis_stage_logs_src_dir = os.path.join(current_analysis_stage_outdir, 'logs')
+    analysis_stage_logs_dest_dir = os.path.join(logs_dir, os.path.basename(current_analysis_stage_outdir))
+    os.makedirs(analysis_stage_logs_dest_dir)
+    for log_file in os.listdir(analysis_stage_logs_src_dir):
+        src_path = os.path.join(analysis_stage_logs_src_dir, log_file)
+        dest_path = os.path.join(analysis_stage_logs_dest_dir, log_file)
+        shutil.copy(src_path, dest_path)
+        log.info(f'Published log file: {log_file} -> {dest_path}')
 
     log.info(f'Analysis stage complete: {current_analysis_stage}')
 
@@ -365,6 +433,8 @@ def main():
         log.error(f'Error code: {make_consensus_seqs_analysis_summary["return_code"]}')
         exit(make_consensus_seqs_analysis_summary['return_code'])
 
+    #
+    # Publish outputs and logs
     outputs_to_publish = {
         'consensus_seqs': os.path.join(args.outdir),
     }
@@ -374,7 +444,17 @@ def main():
         shutil.copy(src_path, dest_path)
         log.info(f'Published output: {output_name} -> {dest_path}')
 
+    analysis_stage_logs_src_dir = os.path.join(current_analysis_stage_outdir, 'logs')
+    analysis_stage_logs_dest_dir = os.path.join(logs_dir, os.path.basename(current_analysis_stage_outdir))
+    os.makedirs(analysis_stage_logs_dest_dir)
+    for log_file in os.listdir(analysis_stage_logs_src_dir):
+        src_path = os.path.join(analysis_stage_logs_src_dir, log_file)
+        dest_path = os.path.join(analysis_stage_logs_dest_dir, log_file)
+        shutil.copy(src_path, dest_path)
+        log.info(f'Published log file: {log_file} -> {dest_path}')
+
     log.info(f'Analysis stage complete: {current_analysis_stage}')
+
 
     #
     # Stage 7: Summary reporting and plotting.
@@ -407,6 +487,8 @@ def main():
         args.output_name,
     )
 
+    #
+    # Publish outputs and logs
     outputs_to_publish = {
         'report': os.path.join(args.outdir),
         'depth_of_cov_plots': os.path.join(args.outdir),
@@ -419,6 +501,17 @@ def main():
         dest_path = os.path.join(output_dir, os.path.basename(src_path))
         shutil.copy(src_path, dest_path)
         log.info(f'Published output: {output_name} -> {dest_path}')
+
+    analysis_stage_logs_src_dir = os.path.join(current_analysis_stage_outdir, 'logs')
+    analysis_stage_logs_dest_dir = os.path.join(logs_dir, os.path.basename(current_analysis_stage_outdir))
+    os.makedirs(analysis_stage_logs_dest_dir)
+    for log_file in os.listdir(analysis_stage_logs_src_dir):
+        src_path = os.path.join(analysis_stage_logs_src_dir, log_file)
+        dest_path = os.path.join(analysis_stage_logs_dest_dir, log_file)
+        shutil.copy(src_path, dest_path)
+        log.info(f'Published log file: {log_file} -> {dest_path}')
+
+    log.info(f'Analysis stage complete: {current_analysis_stage}')
 
     
     if not args.disable_garbage_collection:
