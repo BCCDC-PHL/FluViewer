@@ -6,6 +6,7 @@ import glob
 import hashlib
 import json
 import os
+import sys
 
 from pathlib import Path
 
@@ -291,17 +292,22 @@ def main(args):
 
     output_path = os.path.join(args.outdir, "check_outputs_summary.csv")
     with open(output_path, 'w') as f:
-        writer = csv.DictWriter(f, fieldnames=output_fields, extrasaction='ignore')
-        writer.writeheader()
+        file_writer = csv.DictWriter(f, fieldnames=output_fields, extrasaction='ignore')
+        stdout_writer = csv.DictWriter(sys.stdout, fieldnames=output_fields, extrasaction='ignore', delimiter='\t')
+        stdout_writer.writeheader()
+        file_writer.writeheader()
         for test in tests:
             test["test_result"] = "FAIL"
             if test["test_passed"]:
                 test["test_result"] = "PASS"
 
-            writer.writerow(test)
+            stdout_writer.writerow(test)
+            file_writer.writerow(test)
 
     for test in tests:
         if not test['test_passed']:
+            print(f"\nTest: {test['test_name']} failed.")
+            print(f"See {output_path} for more details.")
             exit(1)
 
 
