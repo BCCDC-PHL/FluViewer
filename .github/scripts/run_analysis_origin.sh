@@ -31,7 +31,7 @@ while IFS=, read -r sample_id assembly; do
 	--forward-reads .github/data/fastq/${sample_id}_R1.fastq.gz \
 	--reverse-reads .github/data/fastq/${sample_id}_R2.fastq.gz \
 	--db .github/data/fluviewer_db-${database_version}/FluViewer_db.fa \
-	--outdir .github/data/test_output/BCCDC-PHL-FluViewer-output \
+	--outdir .github/data/test_output/BCCDC-PHL-FluViewer-output/${sample_id} \
 	--output-name ${sample_id}
     echo "Finished analyzing sample: ${sample_id}"
 

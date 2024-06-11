@@ -9,6 +9,7 @@ import os
 
 from pathlib import Path
 
+
 def check_expected_files_exist(output_dirs, sample_ids, output_file_mapping_by_sample_id):
     """
     Check that the expected files exist in the output directory.
@@ -90,9 +91,15 @@ def main(args):
     for sample_id in sample_ids:
         output_file_mapping = {
             'HA_contigs':             {"upstream": os.path.join(sample_id, "HA_contigs.fa"),
-                                       "origin":   os.path.join(sample_id, "HA_contigs.fa")},
+                                       "origin":   os.path.join(sample_id,
+                                                                "analysis_by_stage",
+                                                                "01_assemble_contigs",
+                                                                "HA_contigs.fa")},
             'HA_contigs_alignment':   {"upstream": os.path.join(sample_id, "HA_contigs.afa"),
-                                       "origin":   os.path.join(sample_id, "HA_contigs.afa")},
+                                       "origin":   os.path.join(sample_id,
+                                                                "analysis_by_stage",
+                                                                "01_assemble_contigs",
+                                                                "HA_contigs.afa")},
             'NA_contigs':             {"upstream": os.path.join(sample_id, "NA_contigs.fa"),
                                        "origin":   os.path.join(sample_id, "NA_contigs.fa")},
             'NA_contigs_alignment':   {"upstream": os.path.join(sample_id, "NA_contigs.afa"),
