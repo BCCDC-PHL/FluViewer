@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BCCDC-PHL FluViewer &mdash; BCCDC-PHL FluViewer  documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="#" class="icon icon-home"> BCCDC-PHL FluViewer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">BCCDC-PHL FluViewer</a></li>
+<li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
+<li><a class="reference internal" href="#fluviewer-fluviewer">fluviewer.fluviewer</a></li>
+<li><a class="reference internal" href="#fluviewer-analysis">fluviewer.analysis</a></li>
+<li><a class="reference internal" href="#fluviewer-database">fluviewer.database</a><ul>
+<li><a class="reference internal" href="#fluviewer.database.check_database"><code class="docutils literal notranslate"><span class="pre">check_database()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fluviewer-parsers">fluviewer.parsers</a><ul>
+<li><a class="reference internal" href="#fluviewer.parsers.convert_cell_to_int"><code class="docutils literal notranslate"><span class="pre">convert_cell_to_int()</span></code></a></li>
+<li><a class="reference internal" href="#fluviewer.parsers.parse_bbnorm_log"><code class="docutils literal notranslate"><span class="pre">parse_bbnorm_log()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fluviewer-report">fluviewer.report</a></li>
+<li><a class="reference internal" href="#fluviewer-plots">fluviewer.plots</a></li>
+<li><a class="reference internal" href="#fluviewer-cli-args">fluviewer.cli_args</a><ul>
+<li><a class="reference internal" href="#fluviewer.cli_args.parse_args"><code class="docutils literal notranslate"><span class="pre">parse_args()</span></code></a></li>
+<li><a class="reference internal" href="#fluviewer.cli_args.validate_args"><code class="docutils literal notranslate"><span class="pre">validate_args()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fluviewer-logging-config">fluviewer.logging_config</a><ul>
+<li><a class="reference internal" href="#fluviewer.logging_config.configure_logging"><code class="docutils literal notranslate"><span class="pre">configure_logging()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</div>
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">BCCDC-PHL FluViewer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home"></a></li>
+      <li class="breadcrumb-item active">BCCDC-PHL FluViewer</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="bccdc-phl-fluviewer">
+<h1>BCCDC-PHL FluViewer<a class="headerlink" href="#bccdc-phl-fluviewer" title="Permalink to this heading"></a></h1>
+<div class="toctree-wrapper compound">
+</div>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this heading"></a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</section>
+<section id="fluviewer-fluviewer">
+<h1>fluviewer.fluviewer<a class="headerlink" href="#fluviewer-fluviewer" title="Permalink to this heading"></a></h1>
+<p>This module controls the overall flow of analysis by running each analysis stage.</p>
+<p>It runs the following analysis stages:</p>
+<ol class="arabic simple" start="0">
+<li><p>Read Normalization</p></li>
+<li><p>Assemble Contigs</p></li>
+<li><p>BLAST Contigs</p></li>
+<li><p>Scaffolding</p></li>
+<li><p>Read Mapping</p></li>
+<li><p>Variant Calling</p></li>
+<li><p>Consensus Calling</p></li>
+<li><p>Summary Reporting</p></li>
+</ol>
+</section>
+<section id="fluviewer-analysis">
+<h1>fluviewer.analysis<a class="headerlink" href="#fluviewer-analysis" title="Permalink to this heading"></a></h1>
+<p>This module includes the steps required for each analysis stage.</p>
+</section>
+<section id="fluviewer-database">
+<h1>fluviewer.database<a class="headerlink" href="#fluviewer-database" title="Permalink to this heading"></a></h1>
+<p>This module includes functions used to check the integrity of the
+FluViewer database prior to analysis.</p>
+<span class="target" id="module-fluviewer.database"></span><dl class="py function">
+<dt class="sig sig-object py" id="fluviewer.database.check_database">
+<span class="sig-prename descclassname"><span class="pre">fluviewer.database.</span></span><span class="sig-name descname"><span class="pre">check_database</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">db</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outdir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_name</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fluviewer.database.check_database" title="Permalink to this definition"></a></dt>
+<dd><p>Checks the contents of the provided reference sequence database to
+ensure proper header formatting and unambiguous sequences.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>db</strong> (<em>Path</em>) – Path to the reference sequence database.</p></li>
+<li><p><strong>outdir</strong> (<em>str</em>) – Path to the output directory.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="fluviewer-parsers">
+<h1>fluviewer.parsers<a class="headerlink" href="#fluviewer-parsers" title="Permalink to this heading"></a></h1>
+<p>This module includes functions related to parsing output files.</p>
+<span class="target" id="module-fluviewer.parsers"></span><dl class="py function">
+<dt class="sig sig-object py" id="fluviewer.parsers.convert_cell_to_int">
+<span class="sig-prename descclassname"><span class="pre">fluviewer.parsers.</span></span><span class="sig-name descname"><span class="pre">convert_cell_to_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cell</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fluviewer.parsers.convert_cell_to_int" title="Permalink to this definition"></a></dt>
+<dd><p>Cells are reported with a “K”, “M”, or “G” suffix. This function
+converts the cell size to an integer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>cell</strong> (<em>str</em>) – The cell size.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The cell size as an integer.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fluviewer.parsers.parse_bbnorm_log">
+<span class="sig-prename descclassname"><span class="pre">fluviewer.parsers.</span></span><span class="sig-name descname"><span class="pre">parse_bbnorm_log</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bbnorm_log_path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fluviewer.parsers.parse_bbnorm_log" title="Permalink to this definition"></a></dt>
+<dd><p>Parse the log file generated by BBnorm.</p>
+</dd></dl>
+
+</section>
+<section id="fluviewer-report">
+<h1>fluviewer.report<a class="headerlink" href="#fluviewer-report" title="Permalink to this heading"></a></h1>
+<p>This module includes functions related to building the final summary report.</p>
+</section>
+<section id="fluviewer-plots">
+<h1>fluviewer.plots<a class="headerlink" href="#fluviewer-plots" title="Permalink to this heading"></a></h1>
+<p>This module includes functions related to generating plots to visualize FluViewer outputs.</p>
+</section>
+<section id="fluviewer-cli-args">
+<h1>fluviewer.cli_args<a class="headerlink" href="#fluviewer-cli-args" title="Permalink to this heading"></a></h1>
+<p>This module includes functions related to parsing and validating command-line arguments.</p>
+<span class="target" id="module-fluviewer.cli_args"></span><dl class="py function">
+<dt class="sig sig-object py" id="fluviewer.cli_args.parse_args">
+<span class="sig-prename descclassname"><span class="pre">fluviewer.cli_args.</span></span><span class="sig-name descname"><span class="pre">parse_args</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fluviewer.cli_args.parse_args" title="Permalink to this definition"></a></dt>
+<dd><p>Parse command line arguments using argparse.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Dictionary of arguments and their values.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fluviewer.cli_args.validate_args">
+<span class="sig-prename descclassname"><span class="pre">fluviewer.cli_args.</span></span><span class="sig-name descname"><span class="pre">validate_args</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fluviewer.cli_args.validate_args" title="Permalink to this definition"></a></dt>
+<dd><p>Validate the arguments provided by the user.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>args</strong> (<em>argparse.Namespace</em>) – Dictionary of arguments and their values.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="fluviewer-logging-config">
+<h1>fluviewer.logging_config<a class="headerlink" href="#fluviewer-logging-config" title="Permalink to this heading"></a></h1>
+<p>This module includes functions related to logging configuration.</p>
+<span class="target" id="module-fluviewer.logging_config"></span><dl class="py function">
+<dt class="sig sig-object py" id="fluviewer.logging_config.configure_logging">
+<span class="sig-prename descclassname"><span class="pre">fluviewer.logging_config.</span></span><span class="sig-name descname"><span class="pre">configure_logging</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">log_level</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fluviewer.logging_config.configure_logging" title="Permalink to this definition"></a></dt>
+<dd><p>Configure logging to log to stderr and args.outdir/logs/fluviewer.log.
+Should configure in such a way that all other modules can
+call logging.getLogger(__name__) and have the same log settings.</p>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Kevin Kuchinski, BCCDC-PHL.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
