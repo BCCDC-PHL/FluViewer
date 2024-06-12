@@ -659,6 +659,8 @@ def filter_scaffold_blast_results(blast_results):
     log.info(f'Found {num_reversed_alignments} reversed alignments.')
     log.info('Removing reversed alignments...')
     blast_results = blast_results[blast_results['send'] > blast_results['sstart']]
+    num_remaining_alignments = len(blast_results)
+    log.info(f'Remaining scaffold alignments after removing reversed alignments: {num_remaining_alignments}.')
 
     #Annotate scaffold seqs with segment.
     query_annots = blast_results[['qseqid']].drop_duplicates()
@@ -667,6 +669,8 @@ def filter_scaffold_blast_results(blast_results):
     blast_results = pd.merge(blast_results, query_annots, on='qseqid')
 
     # Find best-matching reference sequence for each segment.
+    # Best match is defined as the reference sequence with the highest bitscore sum.
+    # Ties are broken by selecting the first alphabetically.
     cols = ['segment', 'sseqid', 'bitscore']
     group_cols = ['segment', 'sseqid']
     combo_scores = blast_results[cols].groupby(group_cols).sum().reset_index()
@@ -793,8 +797,7 @@ def make_scaffold_seqs(inputs, outdir, out_name):
 
     blast_results['sseq'] = blast_results.apply(flip_sseq, axis=1)
     blast_results_flipped_path = os.path.join(outdir, f'{out_name}_contigs_blast_filtered_flipped.tsv')
-    # Write out flipped BLASTn results. Make sure specify that 'segment' is a string.
-    # Otherwise, pandas will convert 'NA' to NaN.
+
     blast_results.to_csv(blast_results_flipped_path, sep='\t', index=False)
     log.info(f'Wrote flipped BLASTn results to {blast_results_flipped_path}')
     outputs['flipped_contig_blast_results'] = os.path.abspath(blast_results_flipped_path)
@@ -945,7 +948,6 @@ def blast_scaffolds(inputs, outdir, out_name, threads):
     }
     db = inputs.get('database', None)
     
-    num_db_seqs = sum(line[0] == '>' for line in open(db, 'r').readlines())
     missing_db_files = []
     db = os.path.abspath(db)
     for suffix in ['nhr', 'nin', 'nsq']:
@@ -974,7 +976,9 @@ def blast_scaffolds(inputs, outdir, out_name, threads):
     ]
     cols_str = ' '.join(cols)
     with open(blast_output, 'w') as f:
-        f.write('\t'.join(cols) + '\n')        
+        f.write('\t'.join(cols) + '\n')
+
+    num_db_seqs = sum(line[0] == '>' for line in open(db, 'r').readlines())
     terminal_command = (f'blastn -query {scaffolds_path} -db {db} '
                         f'-num_threads {threads} -max_target_seqs {num_db_seqs} '
                         f'-outfmt "6 {cols_str}" >> {blast_output}')
@@ -987,7 +991,7 @@ def blast_scaffolds(inputs, outdir, out_name, threads):
         analysis_summary['error_message'] = error_messages_by_code[error_code]
         return analysis_summary
 
-    blast_results = pd.read_csv(blast_output, names=cols, sep='\t', na_filter=False)
+    blast_results = pd.read_csv(blast_output, sep='\t')
     num_blast_results = len(blast_results)
     if num_blast_results == 0:
         log.error(f'No scaffolds aligned to reference sequences! '
@@ -998,7 +1002,7 @@ def blast_scaffolds(inputs, outdir, out_name, threads):
         return analysis_summary
     
     log.info('Scaffolds aligned to reference sequences.')
-    log.info(f'Found {num_blast_results} total matches.')
+    log.info(f'Found {num_blast_results} total scaffold BLAST alignments.')
 
     filtered_blast_results = filter_scaffold_blast_results(blast_results)
 
@@ -1045,7 +1049,7 @@ def make_mapping_refs(inputs, outdir, out_name):
     log.info('Creating mapping references...')
     
     filtered_scaffold_blast_results_path = inputs.get('filtered_scaffold_blast_results', None)
-    blast_results = pd.read_csv(filtered_scaffold_blast_results_path, sep='\t', na_filter=False)
+    blast_results = pd.read_csv(filtered_scaffold_blast_results_path, sep='\t')
     db = inputs.get('database', None)
     db = os.path.abspath(db)
     
@@ -1176,7 +1180,8 @@ def map_reads(inputs, outdir, out_name, min_qual):
 
     filtered_alignment_path = os.path.join(outdir, f'{out_name}_alignment.bam')
     samtools_filter_flags = '2828'
-    log.info(f'Filtering alignment with samtools flags: {samtools_filter_flags}.')
+    log.info(f'Filtering alignment with sam flags: {samtools_filter_flags}.')
+    log.info(f'See: https://broadinstitute.github.io/picard/explain-flags.html for info on sam flags.')
     log.info('Removing unmapped reads, secondary alignments, and supplementary alignments.')
     log.info(f'Minimum mapping quality: {min_qual}')
     terminal_command = (f'samtools view -f 1 -F {samtools_filter_flags} -q {min_qual} '
