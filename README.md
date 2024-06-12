@@ -189,6 +189,7 @@ Headers in the FASTA file have the following format:
 >output_name|segment|subject
 ```
 
+### Summary Report
 
 The report TSV files contain the following columns:
 
@@ -201,10 +202,17 @@ The report TSV files contain the following columns:
 - `consensus_completeness` : the number of nucleotide positions in the consensus with a succesful base call (e.g. A, T, G, or C)
 - `ref_seq_used` : the unique ID and strain name of the scaffold's best-matching reference sequence used for filling in missing regions in the scaffold (if the scaffold completeness was 100%, then this is provided pro forma as none of it was used to create the mapping reference)
 
+### Depth of Coverage Plot
 
 The depth of coverage plots contains the following elements:
+
 - A black line indicating the depth of coverage pre-variant calling
 - A grey line indicating the depth of coverage post-variant calling
 - Red shading covering positions where coverage was too low for base calling
 - Orange lines indicating positions where excess variation resulted in an ambiguous base call
 - Blue lines indicating positions where a variant was called
+
+Below is an example depth of coverage plot. This plot shows outputs from simulated data that was
+generated from sequences in the FluViewer database, so this represents 'ideal' outputs.
+
+![example depth plot](docs/images/example_depth_of_cov.png)
