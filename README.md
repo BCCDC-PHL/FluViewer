@@ -54,11 +54,32 @@ Each stage selects its inputs from the `outputs` of the previous stages's analys
 
 ```mermaid
 flowchart TD
-  forward_reads --> normalization(Read Normalization)
-  reverse_reads --> normalization
-  normalization --> normalization_analysis_summary(Analysis Summary)
-  normalization_analysis_summary --> assemble_contigs(Assemble Contigs)
-  fluviewer_db --> blast_contigs(BLAST Contigs)
+  forward_reads[Forward Reads] -- input_reads_fwd --> normalization(Read Normalization)
+  reverse_reads[Reverse Reads] -- input_reads_rev --> normalization
+  normalization -- normalized_reads_fwd --> assemble_contigs(Assemble Contigs)
+  normalization -- normalized_reads_rev --> assemble_contigs
+  fluviewer_db[FluViewer DB] --> blast_contigs(BLAST Contigs)
+  assemble_contigs -- contigs --> blast_contigs
+  blast_contigs -- filtered_contig_blast_results --> scaffolding(Scaffolding)
+  fluviewer_db --> scaffolding
+  scaffolding -- filtered_scaffold_blast_results --> read_mapping(Read Mapping)
+  normalization -- normalized_reads_fwd --> read_mapping
+  normalization -- normalized_reads_rev --> read_mapping
+  fluviewer_db --> read_mapping
+  read_mapping -- mapping_refs --> variant_calling(Variant Calling)
+  read_mapping -- alignment --> variant_calling
+  read_mapping -- alignment_index --> variant_calling
+  variant_calling -- variants_filtered --> consensus_calling(Consensus Calling)
+  variant_calling -- masked_positions --> consensus_calling
+  read_mapping -- mapping_refs --> consensus_calling
+  scaffolding -- scaffolds --> reporting(Summary Reporting)
+  read_mapping -- mapping_refs --> reporting
+  read_mapping -- alignment --> reporting
+  variant_calling -- depth_of_cov_freebayes --> reporting
+  variant_calling -- low_coverage_positions --> reporting
+  variant_calling -- ambiguous_positions --> reporting
+  variant_calling -- variant_positions --> reporting
+  consensus_calling -- consensus_seqs --> reporting
 ```
 
 ## Installation
