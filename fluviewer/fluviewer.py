@@ -277,18 +277,28 @@ def main():
         args.threads,
     )
 
+    analysis_stage_outputs = make_scaffold_seqs_analysis_summary['outputs'].copy()
+    analysis_stage_outputs.update(blast_scaffolds_analysis_summary['outputs'])
+    scaffolding_analysis_summary = {
+        "timestamp_analysis_start": make_scaffold_seqs_analysis_summary['timestamp_analysis_start'],
+        "inputs": current_analysis_stage_inputs,
+        "outputs": analysis_stage_outputs,
+        "timestamp_analysis_complete": blast_scaffolds_analysis_summary['timestamp_analysis_complete'],
+    }
+    with open(os.path.join(current_analysis_stage_outdir, 'analysis_summary.json'), 'w') as f:
+        json.dump(scaffolding_analysis_summary, f, indent=4)
+        f.write('\n')
+       
     #
     # Publish outputs and logs
     outputs_to_publish = {
     }
     for output_name, output_dir in outputs_to_publish.items():
-        if output_name in make_scaffold_seqs_analysis_summary['outputs']:
-            src_path = make_scaffold_seqs_analysis_summary['outputs'][output_name]
-        elif output_name in blast_scaffolds_analysis_summary['outputs']:
-            src_path = blast_scaffolds_analysis_summary['outputs'][output_name]
-        dest_path = os.path.join(output_dir, os.path.basename(src_path))
-        shutil.copy(src_path, dest_path)
-        log.info(f'Published output: {output_name} -> {dest_path}')
+        if output_name in current_analysis_stage_summary['outputs']:
+            src_path = current_analysis_stage_summary['outputs'][output_name]
+            dest_path = os.path.join(output_dir, os.path.basename(src_path))
+            shutil.copy(src_path, dest_path)
+            log.info(f'Published output: {output_name} -> {dest_path}')
 
     analysis_stage_logs_src_dir = os.path.join(current_analysis_stage_outdir, 'logs')
     analysis_stage_logs_dest_dir = os.path.join(logs_dir, os.path.basename(current_analysis_stage_outdir))
@@ -463,7 +473,8 @@ def main():
     current_analysis_stage_outdir = os.path.join(args.outdir, 'analysis_by_stage', f'{current_analysis_stage_index:02}_{current_analysis_stage}')
     current_analysis_stage_outdir = os.path.abspath(current_analysis_stage_outdir)
     current_analysis_stage_inputs = {
-        'scaffolds': make_scaffold_seqs_analysis_summary['outputs']['scaffolds'],
+        'segment_contigs_alignments': scaffolding_analysis_summary['outputs']['segment_contigs_alignments'],
+        'scaffolds': scaffolding_analysis_summary['outputs']['scaffolds'],
         'mapping_refs': map_reads_analysis_summary['outputs']['mapping_refs'],
         'alignment': map_reads_analysis_summary['outputs']['alignment'],
         'depth_of_cov_freebayes': call_variants_analysis_summary['outputs']['depth_of_cov_freebayes'],

@@ -32,6 +32,10 @@ jobs:
       run: bash .github/scripts/download_assemblies.sh
     - name: Simulate Reads
       run: bash .github/scripts/simulate_reads.sh
+    - name: Create SRA-Tools Environment
+      run: bash .github/scripts/create_sra-tools_environment.sh
+    - name: Download SRA Reads
+      run: bash .github/scripts/download_sra_reads.sh
     - name: Download FluViewer db
       run: bash .github/scripts/download_fluviewer_db.sh
     - name: Install KevinKuchinski/FluViewer

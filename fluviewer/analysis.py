@@ -809,9 +809,11 @@ def make_scaffold_seqs(inputs, outdir, out_name):
     segments = blast_results['segment'].unique()
     contig_counter = {segment: 0 for segment in segments}
     scaffold_seqs = {}
+    outputs['segment_contigs'] = {}
+    outputs['segment_contigs_alignments'] = {}
     for segment in segments:
-        contigs = os.path.join(outdir, f'{segment}_contigs.fa')
-        with open(contigs, 'w') as f:
+        segment_contigs_path = os.path.join(outdir, f'{segment}_contigs.fa')
+        with open(segment_contigs_path, 'w') as f:
             contig_results = blast_results[blast_results['segment']==segment]
             for index, row in contig_results.iterrows():
                 header = f'>{segment}_contig_{contig_counter[segment]}\n'
@@ -821,31 +823,31 @@ def make_scaffold_seqs(inputs, outdir, out_name):
                 seq += ('N' * (row['slen'] - row['end']))
                 f.write(seq + '\n')
                 contig_counter[segment] += 1
-        log.info(f'Wrote {contig_counter[segment]} contigs for segment {segment} to {contigs}')
-        outputs[f'{segment}_contigs'] = os.path.abspath(contigs)
-        # Generate multiple sequence alignments of trimmed/positioned contigs.
-        log.info(f'Aligning contigs for segment {segment} with clustalw...')
-        aligned_contigs = os.path.join(outdir, f'{segment}_contigs.afa')
+        log.info(f'Wrote {contig_counter[segment]} contigs for segment {segment} to {segment_contigs_path}')
+        outputs['segment_contigs'][segment] = os.path.abspath(segment_contigs_path)
 
+        # Generate multiple sequence alignments of trimmed/positioned contigs.
+        log.info(f'Aligning contigs for segment {segment} with clustalw...')        
+        segment_contigs_alignment_path = os.path.join(outdir, f'{segment}_contigs.afa')
         if contig_counter[segment] > 1:
             log.info(f'Generating multiple sequence alignment for segment {segment}...')
-            terminal_command = (f'clustalw -INFILE={contigs} '
-                                f'-OUTFILE={aligned_contigs} -OUTPUT=FASTA')
+            terminal_command = (f'clustalw -INFILE={segment_contigs_path} '
+                                f'-OUTFILE={segment_contigs_alignment_path} -OUTPUT=FASTA')
             process_name = f'clustalw_{segment}'
             error_code = 9
             clustalw_return_code = run(terminal_command, outdir, out_name, process_name, error_code)
             analysis_summary['return_code'] = clustalw_return_code
         else:
             log.info(f'Only one contig for segment {segment}, skipping alignment.')
-            shutil.copyfile(contigs, aligned_contigs)
+            shutil.copyfile(segment_contigs_path, segment_contigs_alignment_path)
             analysis_summary['return_code'] = 0
 
-        outputs[f'{segment}_aligned_contigs'] = os.path.abspath(aligned_contigs)
+        outputs['segment_contigs_alignments'][segment] = os.path.abspath(segment_contigs_alignment_path)
 
         # Replace leading and trailing Ns with dots so that they are ignored
         # when determining consensus bases.
         seqs = {}
-        with open(aligned_contigs, 'r') as input_file:
+        with open(segment_contigs_alignment_path, 'r') as input_file:
             for line in input_file:
                 if line[0] == '>':
                     header = line.strip()
@@ -915,9 +917,6 @@ def make_scaffold_seqs(inputs, outdir, out_name):
     analysis_summary['timestamp_analysis_complete'] = timestamp_analysis_complete
     analysis_summary['outputs'] = outputs
 
-    with open(os.path.join(outdir, 'analysis_summary.json'), 'w') as f:
-        json.dump(analysis_summary, f, indent=4)
-        f.write('\n')
     
     return analysis_summary
 
