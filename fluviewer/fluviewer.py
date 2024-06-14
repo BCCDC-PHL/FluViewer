@@ -497,6 +497,19 @@ def main():
         args.output_name,
     )
 
+    analysis_stage_outputs = reporting_summary['outputs'].copy()
+    analysis_stage_outputs.update(plotting_summary['outputs'])
+    summary_reporting_analysis_summary = {
+        "timestamp_analysis_start": reporting_summary['timestamp_analysis_start'],
+        "timestamp_analysis_complete": plotting_summary['timestamp_analysis_complete'],
+        "analysis_stage": current_analysis_stage,
+        "inputs": current_analysis_stage_inputs,
+        "outputs": analysis_stage_outputs,
+    }
+    with open(os.path.join(current_analysis_stage_outdir, 'analysis_summary.json'), 'w') as f:
+        json.dump(summary_reporting_analysis_summary, f, indent=4)
+        f.write('\n')
+    
     #
     # Publish outputs and logs
     outputs_to_publish = {

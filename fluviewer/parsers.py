@@ -286,6 +286,7 @@ def parse_contig_alignment(alignment_path: Path) -> list[dict]:
     :rtype: list[dict]
     """
     alignment = []
+    log.debug(f"Reading alignment file: {alignment_path}")
     with open(alignment_path, 'r') as f:
         contig = None
         contig_id = None
@@ -304,9 +305,9 @@ def parse_contig_alignment(alignment_path: Path) -> list[dict]:
             alignment.append(contig)
 
     for contig in alignment:
-        contig['matches'] = []
+        contig['matching_regions'] = []
         for match in _find_starts_ends_of_matches(contig['seq']):
-            contig['matches'].append(match)
+            contig['matching_regions'].append(match)
             
     return alignment
 
@@ -343,8 +344,8 @@ def parse_scaffolds(scaffolds_path: Path, segment_to_parse: str) -> dict:
             elif segment_found and line.startswith('>'):
                 segment_found = False
 
-    segment_scaffold['matches'] = []
+    segment_scaffold['matching_regions'] = []
     for match in _find_starts_ends_of_matches(segment_scaffold['seq']):
-        segment_scaffold['matches'].append(match)
+        segment_scaffold['matching_regions'].append(match)
         
     return segment_scaffold

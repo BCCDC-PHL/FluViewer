@@ -1178,13 +1178,30 @@ def map_reads(inputs, outdir, out_name, min_qual):
         return analysis_summary
 
     filtered_alignment_path = os.path.join(outdir, f'{out_name}_alignment.bam')
-    samtools_filter_flags = '2828'
-    log.info(f'Filtering alignment with sam flags: {samtools_filter_flags}.')
-    log.info(f'See: https://broadinstitute.github.io/picard/explain-flags.html for info on sam flags.')
+    
+    samtools_require_flags = [
+        'PAIRED', # 0x1
+    ]
+    samtools_require_flags_str = ','.join(samtools_require_flags)
+    samtools_exclude_flags = [
+        'UNMAP',           # 0x4
+        'MUNMAP',          # 0x8
+        'SECONDARY',       # 0x100
+        'QCFAIL',          # 0x200
+        'SUPPLEMENTARY',   # 0x800
+    ]
+    samtools_exclude_flags_str = ','.join(samtools_exclude_flags)
+
+    log.info(f'Filtering alignment with sam require flags: {samtools_require_flags_str}.')
+    log.info(f'Filtering alignment with sam exclude flags: {samtools_exclude_flags_str}.')
+    log.info(f'See: http://www.htslib.org/doc/samtools-flags.html for info on sam flags.')
     log.info('Removing unmapped reads, secondary alignments, and supplementary alignments.')
-    log.info(f'Minimum mapping quality: {min_qual}')
-    terminal_command = (f'samtools view -f 1 -F {samtools_filter_flags} -q {min_qual} '
-                        f'-h {alignment_path} | samtools sort -o {filtered_alignment_path}')
+    log.info(f'Applying minimum mapping quality: {min_qual}')
+    terminal_command = (f'samtools view '
+                        f'--require-flags {samtools_require_flags_str} '
+                        f'--exclude-flags {samtools_exclude_flags_str} '
+                        f'--min-MQ {min_qual} '
+                        f'--with-header {alignment_path} | samtools sort -o {filtered_alignment_path}')
     process_name = 'samtools_view'
     error_code = 16
     return_code = run(terminal_command, outdir, out_name, process_name, error_code)

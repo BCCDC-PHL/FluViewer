@@ -159,13 +159,13 @@ def make_scaffolding_plots(alignment: list[dict], scaffold: dict, output: Path) 
         else:
             contig_ymin += height_per_contig
         contig_id = contig['id']
-        starts_ends = contig['starts_ends']
+        matching_regions = contig['matching_regions']
         # Add the contig_id as labels
         center_contig_y = contig_ymin + height_per_contig / 2
         ax.text(0, center_contig_y, contig_id, ha='right', va='center')
-        for start_end in starts_ends:
-            start = start_end['start']
-            end = start_end['end']
+        for matching_region in matching_regions:
+            start = matching_region['start']
+            end = matching_region['end']
             ax.broken_barh([(start, end - start)], (contig_ymin, height_per_contig), facecolors='tab:blue')
             # Draw horizontal lines to separate contigs
             ax.axhline(contig_ymin, color='black', linewidth=0.5)
@@ -177,7 +177,7 @@ def make_scaffolding_plots(alignment: list[dict], scaffold: dict, output: Path) 
     # Only turn on vertical grid lines
     ax.grid(axis='x')
 
-    plt.savefig(args.output)
+    plt.savefig(output)
     plt.close()
     
 
@@ -212,7 +212,7 @@ def make_plots(inputs, outdir, out_name):
 
     segments = [
         'HA',
-        'MP',
+        'M',
         'NA',
         'NP',
         'NS',
@@ -222,19 +222,18 @@ def make_plots(inputs, outdir, out_name):
     ]
     outputs['scaffold_alignment_plots'] = {}
     for segment in segments:
-        for contig_alignment_path in inputs['segment_contigs_alignments'][segment]:
-            if not os.path.exists(contig_alignment_path):
-                log.warning(f'Contig alignment file {contig_alignment_path} does not exist. Skipping...')
-                continue
-            contig_alignment = parsers.parse_contig_alignment(contig_alignment_path)
-            scaffolds_path = inputs['scaffolds']
-            scaffolds = parsers.parse_scaffolds(scaffolds_path)
-            output = os.path.join(outdir, f'{out_name}_{segment}_alignment.png')
-            log.info(f'Making scaffold alignment plot for segment {segment}...')
-            make_scaffolding_plots(contig_alignment, scaffold, output)
-            outputs['scaffold_alignment_plots'][segment] = output
-            log.info(f'Scaffold alignment plot saved to {output}')
-    
+        contig_alignment_path  = inputs['segment_contigs_alignments'][segment]
+        if not os.path.exists(contig_alignment_path):
+            log.warning(f'Contig alignment file {contig_alignment_path} does not exist. Skipping...')
+            continue
+        contig_alignment = parsers.parse_contig_alignment(contig_alignment_path)
+        scaffolds_path = inputs['scaffolds']
+        scaffold = parsers.parse_scaffolds(scaffolds_path, segment)
+        output = os.path.join(outdir, f'{out_name}_{segment}_alignment.png')
+        log.info(f'Making scaffold alignment plot for segment {segment}...')
+        make_scaffolding_plots(contig_alignment, scaffold, output)
+        outputs['scaffold_alignment_plots'][segment] = output
+        log.info(f'Scaffold alignment plot saved to {output}')
     
     analysis_summary['outputs'] = outputs
     analysis_summary['timestamp_analysis_complete'] = datetime.datetime.now().isoformat()
