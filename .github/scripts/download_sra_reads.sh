@@ -14,7 +14,7 @@ pushd .github/data/fastq
 while IFS=',' read -r sample_id; do
     fasterq-dump ${sample_id}
     gzip *.fastq
-done < .github/data/sra_samples_to_download.csv
+done < ../sra_samples_to_download.csv
 
 popd
 
