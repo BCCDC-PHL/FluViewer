@@ -4,6 +4,7 @@ import os
 from collections import Counter
 from math import ceil, log10
 
+from fluviewer.analysis import run
 
 log = logging.getLogger(__name__)
 
