@@ -38,8 +38,10 @@ def main():
     
     if not os.path.exists(args.outdir):
         os.makedirs(args.outdir)
+    elif args.outdir == Path('.'): 
+        pass
     else:
-        print(f'Output directory already exists: {args.outdir}', sys.stderr)
+        print(f'Output directory already exists: {str(args.outdir)}', sys.stderr)
         exit(1)
 
     log_level = getattr(logging, args.log_level.upper())
