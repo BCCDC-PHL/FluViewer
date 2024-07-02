@@ -2,6 +2,8 @@ import argparse
 import os
 from pathlib import Path
 
+from . import __version__
+
 def parse_args():
     """
     Parse command line arguments using argparse.
@@ -27,6 +29,7 @@ def parse_args():
     parser.add_argument('-M', '--max-memory', type=int, metavar="[1-]", help='Gigabytes of memory allocated for normalizing reads (default=max)')
     parser.add_argument('-g', '--disable-garbage-collection', action='store_true', help='Disable garbage collection and retain intermediate analysis files')
     parser.add_argument('--log-level', default='info', choices=['info', 'debug'], help='Log level (default=info)')
+    parser.add_argument('--version', action='version', version=__version__)
 
     args = parser.parse_args()
 
