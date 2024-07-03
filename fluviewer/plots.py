@@ -222,6 +222,11 @@ def make_plots(inputs, outdir, out_name):
     ]
     outputs['scaffold_alignment_plots'] = {}
     for segment in segments:
+
+        if segment not in inputs['segment_contigs_alignments']:
+            log.warning(f'No contig alignment file found for segment {segment}. Skipping...')
+            continue
+
         contig_alignment_path  = inputs['segment_contigs_alignments'][segment]
         if not os.path.exists(contig_alignment_path):
             log.warning(f'Contig alignment file {contig_alignment_path} does not exist. Skipping...')
