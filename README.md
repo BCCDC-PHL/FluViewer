@@ -106,8 +106,8 @@ pip3 install git+https://github.com/BCCDC-PHL/FluViewer.git
 ## Usage
 
 ```
-usage: fluviewer [-h] -f FORWARD_READS -r REVERSE_READS -d DATABASE [-o OUTDIR] -n OUTPUT_NAME [-i [0-100]] [-l [32-]] [-D [1-]] [-q [0-]] [-v [0-1]] [-V [0-1]] [-N [1-]] [-L [1-]]
-                 [-t [1-]] [-M [1-]] [-g] [--log-level {info,debug}]
+usage: fluviewer [-h] -f FORWARD_READS -r REVERSE_READS -d DB [-o OUTDIR] -n OUTPUT_NAME [-i [0-100]] [-l [32-]] [-D [1-]] [-q [0-]] [-v [0-1]] [-V [0-1]] [-N [1-]] [-L [1-]] [-t [1-]] [-M [1-]] [-g] [--force]
+                 [--log-level {info,debug}] [--version]
 
 BCCDC-PHL/FluViewer: Influenza A virus consensus sequence generation and variant calling
 
@@ -145,8 +145,10 @@ optional arguments:
                         Gigabytes of memory allocated for normalizing reads (default=max)
   -g, --disable-garbage-collection
                         Disable garbage collection and retain intermediate analysis files
+  --force               Allow overwrite of existing files and directories.
   --log-level {info,debug}
                         Log level (default=info)
+  --version             show program's version number and exit
 ```
 
 
