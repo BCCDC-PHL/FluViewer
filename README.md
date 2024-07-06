@@ -86,13 +86,13 @@ flowchart TD
 1. Create a virtual environment and install the necessary dependencies using the YAML file provided in this repository. For example, if using conda:
 
 ```
-conda create -n fluviewer -f environment.yaml
+conda env create -n fluviewer -f environment.yaml
 ```
 
 ...or using mamba:
 
 ```
-mamba create -n fluviewer -f environment.yaml
+mamba env create -n fluviewer -f environment.yaml
 ```
 
 2. Download and unzip the default FluViewer DB (FluViewer_db.fa.gz) provided in the [BCCDC-PHL/FluViewer-db](https://github.com/BCCDC-PHL/FluViewer-db) repository.
