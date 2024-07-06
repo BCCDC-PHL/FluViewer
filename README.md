@@ -86,22 +86,17 @@ flowchart TD
 1. Create a virtual environment and install the necessary dependencies using the YAML file provided in this repository. For example, if using conda:
 
 ```
-conda create -n FluViewer -f environment.yaml
+conda create -n fluviewer -f environment.yaml
 ```
 
-2. Activate the FluViewer environment created in the previous step. For example, if using conda:
+...or using mamba:
 
 ```
-conda activate FluViewer
+mamba create -n fluviewer -f environment.yaml
 ```
 
-3. Install the latest version of FluViewer from this repo.
-
-```
-pip3 install git+https://github.com/BCCDC-PHL/FluViewer.git
-```
-
-4. Download and unzip the default FluViewer DB (FluViewer_db.fa.gz) provided in [the BCCDC-PHL/FluViewer-db](https://github.com/BCCDC-PHL/FluViewer-db) repository. Custom DBs can be created and used as well (instructions below).
+2. Download and unzip the default FluViewer DB (FluViewer_db.fa.gz) provided in the [BCCDC-PHL/FluViewer-db](https://github.com/BCCDC-PHL/FluViewer-db) repository.
+Custom DBs can be created and used as well (instructions below).
 
 ## Usage
 
@@ -155,10 +150,13 @@ optional arguments:
 ## FluViewer Database
 
 FluViewer requires a curated FASTA file "database" of IAV reference sequences. Headers for these sequences must be formatted and annotated as follows:
+
 ```
 >unique_id|strain_name(strain_subtype)|sequence_segment|sequence_subtype
 ```
+
 Here are some example entries:
+
 ```
 >CY230322|A/Washington/32/2017(H3N2)|PB2|none
 TCAATTATATTCAGCATGGAAAGAATAAAAGAACTACGGAATCTAATGTCGCAGTCTCGCACTCGCGA...
@@ -169,13 +167,18 @@ CAAAAGCAACAAAAATGAAGGCAATACTAGTAGTTCTGCTATATACATTTACAACCGCAAATGCAGACA...
 >MH669720|A/Iowa/52/2018(H3N2)|NA|N2
 AGGAAAGATGAATCCAAATCAAAAGATAATAACGATTGGCTCTGTTTCTCTCACCATTTCCACAATATG...
 ```
-For HA and NA segments, strain_subtype should reflect the HA and NA subtypes of the isolate (eg H1N1), but sequence_subtype should only indicate the HA or NA subtype of the segment sequence of the entry (eg H1 for an HA sequence or N1 for an NA sequence).
 
-For internal segments (i.e. PB2, PB1, PA, NP, M, and NS), strain_subtype should reflect the HA/NA subtypes of the isolate, but 'none' should be entered for sequence_subtype. If strain_subtype is unknown, 'none' should be entered there as well.
+For HA and NA segments, strain_subtype should reflect the HA and NA subtypes of the isolate (eg H1N1), but sequence_subtype should only
+indicate the HA or NA subtype of the segment sequence of the entry (eg H1 for an HA sequence or N1 for an NA sequence).
+
+For internal segments (i.e. PB2, PB1, PA, NP, M, and NS), strain_subtype should reflect the HA/NA subtypes of the isolate, but 'none'
+should be entered for sequence_subtype. If strain_subtype is unknown, 'none' should be entered there as well.
 
 FluViewer will only accept reference sequences composed entirely of uppercase canonical nucleotides (i.e. A, T, G, and C).
 
-During analysis, FluViewer will check if a BLAST database has been built based on the fasta file that is supplied with the `-d` (or `--db`) flag, by looking for the `.nhr`, `.nin` and `.nsq` BLAST database files associated with the fasta database. If any of those files are not found, the BLAST database will be built using `makeblastdb`. FluViewer expects that it will be able to write those files alongside the fasta database when this occurs.
+During analysis, FluViewer will check if a BLAST database has been built based on the fasta file that is supplied with the `-d` (or `--db`) flag,
+by looking for the `.nhr`, `.nin` and `.nsq` BLAST database files associated with the fasta database. If any of those files are not found,
+the BLAST database will be built using `makeblastdb`. FluViewer expects that it will be able to write those files alongside the fasta database when this occurs.
 
 ## FluViewer Output
 
@@ -187,6 +190,7 @@ FluViewer generates four main output files for each library:
 4. Depth of coverage plots for each segment: `<out_name>_depth_of_cov.png`
 
 Headers in the FASTA file have the following format:
+
 ```
 >output_name|segment|subject
 ```
