@@ -235,7 +235,7 @@ def assemble_contigs(
 
     os.makedirs(spades_output, exist_ok=True)
 
-    terminal_command = (f'spades.py --rnaviral --isolate -1 {fwd_reads} '
+    terminal_command = (f'spades.py --rnaviral -1 {fwd_reads} '
                         f'-2 {rev_reads} -o {spades_output}')
 
     process_name = 'spades'
