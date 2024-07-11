@@ -54,7 +54,7 @@ Each stage selects its inputs from the `outputs` of the previous stages's analys
 
 ```mermaid
 flowchart TD
-  forward_reads[Forward Reads] -- input_reads_fwd --> normalization(Read Normalization (Optional))
+  forward_reads[Forward Reads] -- input_reads_fwd --> normalization("Read Normalization (Optional)")
   reverse_reads[Reverse Reads] -- input_reads_rev --> normalization
   normalization -- normalized_reads_fwd --> assemble_contigs(Assemble Contigs)
   normalization -- normalized_reads_rev --> assemble_contigs
