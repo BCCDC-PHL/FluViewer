@@ -56,15 +56,15 @@ Each stage selects its inputs from the `outputs` of the previous stages's analys
 flowchart TD
   forward_reads[Forward Reads] -- input_reads_fwd --> normalization("Read Normalization (Optional)")
   reverse_reads[Reverse Reads] -- input_reads_rev --> normalization
-  normalization -- normalized_reads_fwd --> assemble_contigs(Assemble Contigs)
-  normalization -- normalized_reads_rev --> assemble_contigs
+  normalization -- reads_fwd --> assemble_contigs(Assemble Contigs)
+  normalization -- reads_rev --> assemble_contigs
   fluviewer_db[FluViewer DB] --> blast_contigs(BLAST Contigs)
   assemble_contigs -- contigs --> blast_contigs
   blast_contigs -- filtered_contig_blast_results --> scaffolding(Scaffolding)
   fluviewer_db --> scaffolding
   scaffolding -- filtered_scaffold_blast_results --> read_mapping(Read Mapping)
-  normalization -- normalized_reads_fwd --> read_mapping
-  normalization -- normalized_reads_rev --> read_mapping
+  normalization -- reads_fwd --> read_mapping
+  normalization -- reads_rev --> read_mapping
   fluviewer_db --> read_mapping
   read_mapping -- mapping_refs --> variant_calling(Variant Calling)
   read_mapping -- alignment --> variant_calling
