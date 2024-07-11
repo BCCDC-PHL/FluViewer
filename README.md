@@ -101,8 +101,8 @@ Custom DBs can be created and used as well (instructions below).
 ## Usage
 
 ```
-usage: fluviewer [-h] -f FORWARD_READS -r REVERSE_READS -d DB [-o OUTDIR] -n OUTPUT_NAME [-i [0-100]] [-l [32-]] [-D [1-]] [-q [0-]] [-v [0-1]] [-V [0-1]] [-N [1-]] [-L [1-]] [-t [1-]] [-M [1-]] [-g] [--force]
-                 [--log-level {info,debug}] [--version]
+usage: fluviewer [-h] -f FORWARD_READS -r REVERSE_READS -d DB [-o OUTDIR] -n OUTPUT_NAME [-i [0-100]] [-l [32-]] [-D [1-]] [-q [0-]] [-v [0-1]] [-V [0-1]] [-N [1-]] [-L [1-]] [-t [1-]] [-M [1-]] [-g] [--skip-depth-normalization]
+                 [--force] [--log-level {info,debug}] [--version]
 
 BCCDC-PHL/FluViewer: Influenza A virus consensus sequence generation and variant calling
 
@@ -112,8 +112,7 @@ optional arguments:
                         Path to FASTQ file containing forward reads
   -r REVERSE_READS, --reverse-reads REVERSE_READS
                         Path to FASTQ file containing reverse reads
-  -d DATABASE, --db DATABASE
-                        Path to FASTA file containing FluViewer database
+  -d DB, --db DB        Path to FASTA file containing FluViewer database
   -o OUTDIR, --outdir OUTDIR
                         Output directory (default=FluViewer_<output-name>)
   -n OUTPUT_NAME, --output-name OUTPUT_NAME
@@ -140,6 +139,8 @@ optional arguments:
                         Gigabytes of memory allocated for normalizing reads (default=max)
   -g, --disable-garbage-collection
                         Disable garbage collection and retain intermediate analysis files
+  --skip-depth-normalization
+                        Skip read depth normalization (bbnorm) step
   --force               Allow overwrite of existing files and directories.
   --log-level {info,debug}
                         Log level (default=info)

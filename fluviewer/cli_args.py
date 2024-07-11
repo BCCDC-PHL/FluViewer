@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument('-t', '--threads', type=int, default=1, metavar="[1-]", help='Threads used for contig/scaffold alignments (default=1)')
     parser.add_argument('-M', '--max-memory', type=int, metavar="[1-]", help='Gigabytes of memory allocated for normalizing reads (default=max)')
     parser.add_argument('-g', '--disable-garbage-collection', action='store_true', help='Disable garbage collection and retain intermediate analysis files')
-    parser.add_argument('--skip-normalization', action='store_true', help='Skip read normalization (bbnorm) step')
+    parser.add_argument('--skip-depth-normalization', action='store_true', help='Skip read depth normalization (bbnorm) step')
     parser.add_argument('--force', action='store_true', help='Allow overwrite of existing files and directories.')
     parser.add_argument('--log-level', default='info', choices=['info', 'debug'], help='Log level (default=info)')
     parser.add_argument('--version', action='version', version=__version__)

@@ -82,8 +82,12 @@ def main():
         args.output_name,
     )    
 
-    analysis_stages = [
-        'normalize_depth',
+    if args.skip_depth_normalization:
+        analysis_stages = []
+    else:
+        analysis_stages = ['normalize_depth']
+
+    analysis_stages += [
         'assemble_contigs',
         'blast_contigs',
         'scaffolding',
@@ -97,55 +101,58 @@ def main():
     log.info('Starting analysis...')
 
 
-    #
-    # Stage 0: Normalize depth of reads.
-    #
-    current_analysis_stage = 'normalize_depth'
-    current_analysis_stage_index = analysis_stages.index(current_analysis_stage)
-    current_analysis_stage_outdir = os.path.join(args.outdir, 'analysis_by_stage', f'{current_analysis_stage_index:02}_{current_analysis_stage}')
-    current_analysis_stage_outdir = os.path.abspath(current_analysis_stage_outdir)
-    log.info(f'Beginning analysis stage: {current_analysis_stage}')
-    log.info(f'Output directory: {current_analysis_stage_outdir}')
+    if args.skip_depth_normalization:
+        log.info('Skipping analysis stage: normalize_depth')
+    else:
+        #
+        # Stage 0: Normalize depth of reads.
+        #
+        current_analysis_stage = 'normalize_depth'
+        current_analysis_stage_index = analysis_stages.index(current_analysis_stage)
+        current_analysis_stage_outdir = os.path.join(args.outdir, 'analysis_by_stage', f'{current_analysis_stage_index:02}_{current_analysis_stage}')
+        current_analysis_stage_outdir = os.path.abspath(current_analysis_stage_outdir)
+        log.info(f'Beginning analysis stage: {current_analysis_stage}')
+        log.info(f'Output directory: {current_analysis_stage_outdir}')
 
-    current_analysis_stage_inputs = {
-        'input_reads_fwd': os.path.abspath(args.forward_reads),
-        'input_reads_rev': os.path.abspath(args.reverse_reads),
-    }
+        current_analysis_stage_inputs = {
+            'input_reads_fwd': os.path.abspath(args.forward_reads),
+            'input_reads_rev': os.path.abspath(args.reverse_reads),
+        }
 
-    normalize_depth_analysis_summary = analysis.normalize_depth(
-        current_analysis_stage_inputs,
-        current_analysis_stage_outdir,
-        args.output_name,
-        os.path.abspath(args.forward_reads),
-        os.path.abspath(args.reverse_reads),
-        args.target_depth,
-        args.max_memory,
-    )
-    if normalize_depth_analysis_summary['return_code'] != 0:
-        log.error(f'Error in analysis stage: {current_analysis_stage}')
-        log.error(f'Error code: {normalize_depth_analysis_summary["return_code"]}')
-        exit(normalize_depth_analysis_summary['return_code'])
+        normalize_depth_analysis_summary = analysis.normalize_depth(
+            current_analysis_stage_inputs,
+            current_analysis_stage_outdir,
+            args.output_name,
+            os.path.abspath(args.forward_reads),
+            os.path.abspath(args.reverse_reads),
+            args.target_depth,
+            args.max_memory,
+        )
+        if normalize_depth_analysis_summary['return_code'] != 0:
+            log.error(f'Error in analysis stage: {current_analysis_stage}')
+            log.error(f'Error code: {normalize_depth_analysis_summary["return_code"]}')
+            exit(normalize_depth_analysis_summary['return_code'])
 
-    #
-    # Publish outputs and logs
-    outputs_to_publish = {
-    }
-    for output_name, output_dir in outputs_to_publish.items():
-        src_path = normalize_depth_analysis_summary['outputs'][output_name]
-        dest_path = os.path.join(output_dir, os.path.basename(src_path))
-        shutil.copy(src_path, dest_path)
-        log.info(f'Published output: {output_name} -> {dest_path}')
+        #
+        # Publish outputs and logs
+        outputs_to_publish = {
+        }
+        for output_name, output_dir in outputs_to_publish.items():
+            src_path = normalize_depth_analysis_summary['outputs'][output_name]
+            dest_path = os.path.join(output_dir, os.path.basename(src_path))
+            shutil.copy(src_path, dest_path)
+            log.info(f'Published output: {output_name} -> {dest_path}')
 
-    analysis_stage_logs_src_dir = os.path.join(current_analysis_stage_outdir, 'logs')
-    analysis_stage_logs_dest_dir = os.path.join(logs_dir, os.path.basename(current_analysis_stage_outdir))
-    os.makedirs(analysis_stage_logs_dest_dir)
-    for log_file in os.listdir(analysis_stage_logs_src_dir):
-        src_path = os.path.join(analysis_stage_logs_src_dir, log_file)
-        dest_path = os.path.join(analysis_stage_logs_dest_dir, log_file)
-        shutil.copy(src_path, dest_path)
-        log.info(f'Published log file: {log_file} -> {dest_path}')
+        analysis_stage_logs_src_dir = os.path.join(current_analysis_stage_outdir, 'logs')
+        analysis_stage_logs_dest_dir = os.path.join(logs_dir, os.path.basename(current_analysis_stage_outdir))
+        os.makedirs(analysis_stage_logs_dest_dir)
+        for log_file in os.listdir(analysis_stage_logs_src_dir):
+            src_path = os.path.join(analysis_stage_logs_src_dir, log_file)
+            dest_path = os.path.join(analysis_stage_logs_dest_dir, log_file)
+            shutil.copy(src_path, dest_path)
+            log.info(f'Published log file: {log_file} -> {dest_path}')
 
-    log.info(f'Analysis stage complete: {current_analysis_stage}')
+        log.info(f'Analysis stage complete: {current_analysis_stage}')
 
 
     #
@@ -153,11 +160,18 @@ def main():
     #
     current_analysis_stage = 'assemble_contigs'
     current_analysis_stage_index = analysis_stages.index(current_analysis_stage)
-    
-    current_analysis_stage_inputs = {
-        'normalized_reads_fwd': normalize_depth_analysis_summary['outputs']['normalized_reads_fwd'],
-        'normalized_reads_rev': normalize_depth_analysis_summary['outputs']['normalized_reads_rev'],
-    }
+
+    if not args.skip_depth_normalization:
+        current_analysis_stage_inputs = {
+            'reads_fwd': normalize_depth_analysis_summary['outputs']['normalized_reads_fwd'],
+            'reads_rev': normalize_depth_analysis_summary['outputs']['normalized_reads_rev'],
+        }
+    else:
+        current_analysis_stage_inputs = {
+            'reads_fwd': os.path.abspath(args.forward_reads),
+            'reads_rev': os.path.abspath(args.reverse_reads),
+        }
+
     current_analysis_stage_outdir = os.path.join(args.outdir, 'analysis_by_stage', f'{current_analysis_stage_index:02}_{current_analysis_stage}')
     current_analysis_stage_outdir = os.path.abspath(current_analysis_stage_outdir)
 
@@ -323,9 +337,18 @@ def main():
     current_analysis_stage_inputs = {
         'filtered_scaffold_blast_results': blast_scaffolds_analysis_summary['outputs']['filtered_scaffold_blast_results'],
         'database': os.path.abspath(args.db),
-        'normalized_reads_fwd': normalize_depth_analysis_summary['outputs']['normalized_reads_fwd'],
-        'normalized_reads_rev': normalize_depth_analysis_summary['outputs']['normalized_reads_rev'],
     }
+    if not args.skip_depth_normalization:
+        current_analysis_stage_inputs.update({
+            'reads_fwd': normalize_depth_analysis_summary['outputs']['normalized_reads_fwd'],
+            'reads_rev': normalize_depth_analysis_summary['outputs']['normalized_reads_rev'],
+        })
+    else:
+        current_analysis_stage_inputs.update({
+            'reads_fwd': os.path.abspath(args.forward_reads),
+            'reads_rev': os.path.abspath(args.reverse_reads),
+        })
+    
     log.info(f'Beginning analysis stage: {current_analysis_stage}')
 
     map_reads_analysis_summary = analysis.map_reads(

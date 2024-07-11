@@ -230,8 +230,8 @@ def assemble_contigs(
     os.makedirs(logs_dir, exist_ok=True)
     
     spades_output = os.path.join(outdir, 'spades_output')
-    fwd_reads = inputs.get('normalized_reads_fwd', None)
-    rev_reads = inputs.get('normalized_reads_rev', None)
+    fwd_reads = inputs.get('reads_fwd', None)
+    rev_reads = inputs.get('reads_rev', None)
 
     os.makedirs(spades_output, exist_ok=True)
 
@@ -1128,11 +1128,10 @@ def make_mapping_refs(inputs, outdir, out_name):
 
 def map_reads(inputs, outdir, out_name, min_qual):
     """
-    Normalized, downsampled reads (from normalize_depth analysis stage) are mapped to the
-    mapping references (produced by make_mapping_refs func) using BWA mem. The alignment
-    is filtered to retain only paired reads, then sorted and indexed.
+    Reads  are mapped to the mapping references (produced by make_mapping_refs func) using BWA mem.
+    The alignment is filtered to retain only paired reads, then sorted and indexed.
 
-    :param inputs: Dictionary of input files, with keys 'normalized_reads_fwd', 'normalized_reads_rev' and 'mapping_refs'.
+    :param inputs: Dictionary of input files, with keys: ['reads_fwd', 'reads_rev' and 'mapping_refs'].
     :type inputs: dict
     :param outdir: Path to the output directory.
     :type outdir: Path
@@ -1163,8 +1162,8 @@ def map_reads(inputs, outdir, out_name, min_qual):
         analysis_summary['error_message'] = error_messages_by_code[error_code]
         return analysis_summary
 
-    fwd_reads = inputs.get('normalized_reads_fwd', None)
-    rev_reads = inputs.get('normalized_reads_rev', None)
+    fwd_reads = inputs.get('reads_fwd', None)
+    rev_reads = inputs.get('reads_rev', None)
     alignment_path = os.path.join(outdir, f'{out_name}_alignment.sam')
     terminal_command = (f'bwa mem {mapping_refs_path} {fwd_reads} {rev_reads} '
                         f'> {alignment_path}')
