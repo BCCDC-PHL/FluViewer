@@ -8,7 +8,7 @@ This codebase is derived from [KevinKuchinski/FluViewer](https://github.com/Kevi
 
 ## Analysis Stages
 
-0. **Read Normalization**: The provided reads are normalized and downsampled using a kmer-based approach from [bbmap](https://sourceforge.net/projects/bbmap) called `bbnorm`. This reduces any excessive coverage of certain genome regions.
+0. **Read Normalization**: (Optional) The provided reads are normalized and downsampled using a kmer-based approach from [bbmap](https://sourceforge.net/projects/bbmap) called `bbnorm`. This reduces any excessive coverage of certain genome regions.
 
 1. **Assemble Contigs**: The normalized/downsampled reads are assembled de novo into contigs with the [spades](https://github.com/ablab/spades) assembler.
 
@@ -54,7 +54,7 @@ Each stage selects its inputs from the `outputs` of the previous stages's analys
 
 ```mermaid
 flowchart TD
-  forward_reads[Forward Reads] -- input_reads_fwd --> normalization(Read Normalization)
+  forward_reads[Forward Reads] -- input_reads_fwd --> normalization(Read Normalization (Optional))
   reverse_reads[Reverse Reads] -- input_reads_rev --> normalization
   normalization -- normalized_reads_fwd --> assemble_contigs(Assemble Contigs)
   normalization -- normalized_reads_rev --> assemble_contigs
@@ -140,13 +140,18 @@ optional arguments:
   -g, --disable-garbage-collection
                         Disable garbage collection and retain intermediate analysis files
   --skip-depth-normalization
-                        Skip read depth normalization (bbnorm) step
+                        Skip read depth normalization (bbnorm) stage.
   --force               Allow overwrite of existing files and directories.
   --log-level {info,debug}
                         Log level (default=info)
   --version             show program's version number and exit
 ```
 
+### Depth Normalization
+
+Depending on the library preparation method used, some libraries get much higher depth of coverage near the
+ends of each segment.
+The `normalize_depth` stage is intended to normalize the depth-of-coverage across each segment to a consistent level, but this stage is optional. If you would like to skip the `normalize_depth` stage, simply add the `--skip-depth-normalization` flag. If that flag is used, the `assemble_contigs` stage will start directly with the set of reads supplied with the `--forward-reads` (`-f`) and `--reverse-reads` (`-r`) flags.
 
 ## FluViewer Database
 

@@ -338,15 +338,16 @@ def main():
         'filtered_scaffold_blast_results': blast_scaffolds_analysis_summary['outputs']['filtered_scaffold_blast_results'],
         'database': os.path.abspath(args.db),
     }
-    if not args.skip_depth_normalization:
-        current_analysis_stage_inputs.update({
-            'reads_fwd': normalize_depth_analysis_summary['outputs']['normalized_reads_fwd'],
-            'reads_rev': normalize_depth_analysis_summary['outputs']['normalized_reads_rev'],
-        })
-    else:
+
+    if args.skip_depth_normalization:
         current_analysis_stage_inputs.update({
             'reads_fwd': os.path.abspath(args.forward_reads),
             'reads_rev': os.path.abspath(args.reverse_reads),
+        })
+    else:
+        current_analysis_stage_inputs.update({
+            'reads_fwd': normalize_depth_analysis_summary['outputs']['normalized_reads_fwd'],
+            'reads_rev': normalize_depth_analysis_summary['outputs']['normalized_reads_rev'],
         })
     
     log.info(f'Beginning analysis stage: {current_analysis_stage}')
