@@ -82,12 +82,8 @@ def main():
         args.output_name,
     )    
 
-    if args.skip_depth_normalization:
-        analysis_stages = []
-    else:
-        analysis_stages = ['normalize_depth']
-
-    analysis_stages += [
+    analysis_stages = [
+        'normalize_depth',
         'assemble_contigs',
         'blast_contigs',
         'scaffolding',
