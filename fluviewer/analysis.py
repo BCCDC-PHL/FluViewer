@@ -349,7 +349,7 @@ def filter_contig_blast_results(blast_results, outdir, out_name, identity, lengt
             error_code = 8
             exit(error_code)
         else:
-            if segment_subtypes[0] == 'none':
+            if len(segment_subtypes) == 0:
                 log.info(f'No subtype determined for segment {segment}.')
             else:
                 log.info(f'Subtype determined for segment {segment}: {segment_subtypes[0]}.')
