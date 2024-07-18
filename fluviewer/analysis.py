@@ -1619,11 +1619,12 @@ def make_consensus_seqs(inputs, outdir, out_name):
                        'M': (975, 1030), 'NS': (815, 900)}
     for header, seq in clean_seqs.items():
         segment = header.split('|')[1]
+        segment_length = len(seq)
         min_length = segment_lengths[segment][0]
         max_length = segment_lengths[segment][1]
-        if not (min_length <= len(seq) <= max_length):
+        if not (min_length <= segment_length <= max_length):
             log.error(f'The consensus sequence generated for segment '
-                      f'{segment} is not within the expected length range '
+                      f'{segment} is f'{segment_length}', which is not within the expected length range '
                       f'({min_length} to {max_length} bases).\n')
             exit(22)
 
