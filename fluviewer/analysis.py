@@ -1624,7 +1624,7 @@ def make_consensus_seqs(inputs, outdir, out_name):
         max_length = segment_lengths[segment][1]
         if not (min_length <= segment_length <= max_length):
             log.error(f'The consensus sequence generated for segment '
-                      f'{segment} is f'{segment_length}', which is not within the expected length range '
+                      f'{segment} is {segment_length}, which is not within the expected length range '
                       f'({min_length} to {max_length} bases).\n')
             exit(22)
 
