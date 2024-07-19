@@ -97,8 +97,6 @@ def normalize_depth(
         inputs: dict,
         outdir: Path,
         out_name: str,
-        fwd_reads_raw: Path,
-        rev_reads_raw: Path,
         depth: int,
         max_memory: int,
 ):
@@ -113,10 +111,6 @@ def normalize_depth(
     :type outdir: str
     :param out_name: Name of the output directory.
     :type out_name: str
-    :param fwd_reads_raw: Path to the raw forward reads.
-    :type fwd_reads_raw: str
-    :param rev_reads_raw: Path to the raw reverse reads.
-    :type rev_reads_raw: str
     :param depth: Target depth of coverage.
     :type depth: int
     :param max_memory: Maximum memory to allocate to BBNorm.
@@ -131,6 +125,8 @@ def normalize_depth(
 
     input_reads_fwd = inputs.get('input_reads_fwd', None)
     input_reads_rev = inputs.get('input_reads_rev', None)
+    input_reads_long = inputs.get('input_reads_long', None)
+
     analysis_summary = {
         'timestamp_analysis_start': timestamp_analysis_start,
         'inputs': inputs,
@@ -138,15 +134,23 @@ def normalize_depth(
     
     normalized_reads_fwd = os.path.join(outdir, f'{out_name}-normalized_R1.fastq')
     normalized_reads_rev = os.path.join(outdir, f'{out_name}-normalized_R2.fastq')
+    normalized_reads_long = os.path.join(outdir, f'{out_name}-normalized_RL.fastq')
 
-    terminal_command = (f'bbnorm.sh in={input_reads_fwd} in2={input_reads_rev} '
-                        f'out={normalized_reads_fwd} out2={normalized_reads_rev} target={depth}')
+    if input_reads_fwd and input_reads_rev:
+        terminal_command = (f'bbnorm.sh in={input_reads_fwd} in2={input_reads_rev} '
+                            f'out={normalized_reads_fwd} out2={normalized_reads_rev} target={depth}')
+    elif input_reads_long:
+        terminal_command = (f'bbnorm.sh in={input_reads_long} out={normalized_reads_long} target={depth}')
+        
     terminal_command = (terminal_command + f' -Xmx{max_memory}g'
                         if max_memory is not None else terminal_command)
 
     # add gzip compression to output files
-    terminal_command += f'\n\ngzip -f {normalized_reads_fwd}\n'
-    terminal_command += f'\ngzip -f {normalized_reads_rev}\n'
+    if input_reads_fwd and input_reads_rev:
+        terminal_command += f'\n\ngzip -f {normalized_reads_fwd}\n'
+        terminal_command += f'\ngzip -f {normalized_reads_rev}\n'
+    elif input_reads_long:
+        terminal_command += f'\n\ngzip -f {normalized_reads_long}\n'
 
     process_name = 'bbnorm'
     error_code = 2
@@ -179,10 +183,15 @@ def normalize_depth(
 
     timestamp_analysis_complete = datetime.datetime.now().isoformat()
 
-    outputs = {
-        'normalized_reads_fwd': os.path.abspath(normalized_reads_fwd) + '.gz',
-        'normalized_reads_rev': os.path.abspath(normalized_reads_rev) + '.gz',
-    }
+    if input_reads_fwd and input_reads_rev:
+        outputs = {
+            'normalized_reads_fwd': os.path.abspath(normalized_reads_fwd) + '.gz',
+            'normalized_reads_rev': os.path.abspath(normalized_reads_rev) + '.gz',
+        }
+    elif input_reads_long:
+        outputs = {
+            'normalized_reads_long': os.path.abspath(normalized_reads_long) + '.gz',
+        }
 
     analysis_summary = {
         'process_name': process_name,

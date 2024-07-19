@@ -12,8 +12,9 @@ def parse_args():
     :rtype: dict
     """
     parser = argparse.ArgumentParser(description='BCCDC-PHL/FluViewer: Influenza A virus consensus sequence generation and variant calling')
-    parser.add_argument('-f', '--forward-reads', type=Path, required=True, help='Path to FASTQ file containing forward reads.')
-    parser.add_argument('-r', '--reverse-reads', type=Path, required=True, help='Path to FASTQ file containing reverse reads.')
+    parser.add_argument('-f', '--forward-reads', type=Path, help='Path to FASTQ file containing forward reads.')
+    parser.add_argument('-r', '--reverse-reads', type=Path, help='Path to FASTQ file containing reverse reads.')
+    parser.add_argument('--long-reads', type=Path, help='Path to FASTQ file containing long reads.')
     parser.add_argument('-d', '--db', type=Path, required=True, help='Path to FASTA file containing FluViewer database.')
     parser.add_argument('-o', '--outdir', type=Path, help='Output directory. (default=FluViewer_<output-name>)')
     parser.add_argument('-n', '--output-name', type=str, required=True, help='Output name. Includes this name in output files, and in consensus sequence headers.')
@@ -47,10 +48,12 @@ def validate_args(args):
     :type args: argparse.Namespace
     """
     independent_validation_rules = {
-        'forward_reads': { 'validation_fn': lambda x: os.path.isfile(x),
+        'forward_reads': { 'validation_fn': lambda x: os.path.isfile(x) if x is not None else True,
                            'error_msg': 'Input file does not exist: {0}' },
-        'reverse_reads': { 'validation_fn': lambda x: os.path.isfile(x),
+        'reverse_reads': { 'validation_fn': lambda x: os.path.isfile(x) if x is not None else True,
                            'error_msg': 'Input file does not exist: {0}' },
+        'long_reads':    { 'validation_fn': lambda x: os.path.isfile(x) if x is not None else True,
+                            'error_msg': 'Input file does not exist: {0}' },
         'db':            { 'validation_fn': lambda x: os.path.isfile(x),
                            'error_msg': 'Input file does not exist: {0}' },
         'outdir':        { 'validation_fn': lambda x: True,

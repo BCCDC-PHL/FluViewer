@@ -41,7 +41,10 @@ def main():
         exit(1)
     else:
         os.makedirs(args.outdir, exist_ok=True)
-        
+
+    if (args.forward_reads or args.reverse_reads) and args.long_reads:
+        print('Error: Combining short and long reads is not supported. Please provide either short reads or long reads, but not both.', sys.stderr)
+        exit(1)
 
     log_level = getattr(logging, args.log_level.upper())
     print(log_level)
@@ -57,8 +60,11 @@ def main():
     version_split = version.split('-')
     log.info(f'Derived from: KevinKuchinski/FluViewer v{version_split[0]}')
     log.info(f'Inputs:')
-    log.info(f"Fwd reads: {args.forward_reads}")
-    log.info(f"Rev reads: {args.reverse_reads}")
+    if args.forward_reads and args.reverse_reads:
+        log.info(f"Fwd reads: {args.forward_reads}")
+        log.info(f"Rev reads: {args.reverse_reads}")
+    elif args.long_reads:
+        log.info(f"Long reads: {args.long_reads}")
     log.info(f"Reference sequences: {args.db}")
 
     log.info(f"Outputs:")
@@ -75,7 +81,7 @@ def main():
     log.info(f"Target depth for pre-normalization of reads: {args.target_depth}")
     log.info(f"Coverage depth limit for variant calling: {args.coverage_limit}")
     
-    
+
     database.check_database(
         args.db,
         args.outdir,
@@ -110,17 +116,23 @@ def main():
         log.info(f'Beginning analysis stage: {current_analysis_stage}')
         log.info(f'Output directory: {current_analysis_stage_outdir}')
 
-        current_analysis_stage_inputs = {
-            'input_reads_fwd': os.path.abspath(args.forward_reads),
-            'input_reads_rev': os.path.abspath(args.reverse_reads),
-        }
+        if args.forward_reads and args.reverse_reads:
+            current_analysis_stage_inputs = {
+                'input_reads_fwd': os.path.abspath(args.forward_reads),
+                'input_reads_rev': os.path.abspath(args.reverse_reads),
+            }
+        elif args.long_reads:
+            current_analysis_stage_inputs = {
+                'input_reads_long': os.path.abspath(args.long_reads),
+            }
+        else:
+            log.error('No input reads provided.')
+            exit(1)
 
         normalize_depth_analysis_summary = analysis.normalize_depth(
             current_analysis_stage_inputs,
             current_analysis_stage_outdir,
             args.output_name,
-            os.path.abspath(args.forward_reads),
-            os.path.abspath(args.reverse_reads),
             args.target_depth,
             args.max_memory,
         )
@@ -158,15 +170,25 @@ def main():
     current_analysis_stage_index = analysis_stages.index(current_analysis_stage)
 
     if not args.skip_depth_normalization:
-        current_analysis_stage_inputs = {
-            'reads_fwd': normalize_depth_analysis_summary['outputs']['normalized_reads_fwd'],
-            'reads_rev': normalize_depth_analysis_summary['outputs']['normalized_reads_rev'],
-        }
+        if args.forward_reads and args.reverse_reads:
+            current_analysis_stage_inputs = {
+                'reads_fwd': normalize_depth_analysis_summary['outputs']['normalized_reads_fwd'],
+                'reads_rev': normalize_depth_analysis_summary['outputs']['normalized_reads_rev'],
+            }
+        elif args.long_reads:
+            current_analysis_stage_inputs = {
+                'reads_long': normalize_depth_analysis_summary['outputs']['normalized_reads_long'],
+            }
     else:
-        current_analysis_stage_inputs = {
-            'reads_fwd': os.path.abspath(args.forward_reads),
-            'reads_rev': os.path.abspath(args.reverse_reads),
-        }
+        if args.forward_reads and args.reverse_reads:
+            current_analysis_stage_inputs = {
+                'reads_fwd': os.path.abspath(args.forward_reads),
+                'reads_rev': os.path.abspath(args.reverse_reads),
+            }
+        elif args.long_reads:
+            current_analysis_stage_inputs = {
+                'reads_long': os.path.abspath(args.long_reads),
+            }
 
     current_analysis_stage_outdir = os.path.join(args.outdir, 'analysis_by_stage', f'{current_analysis_stage_index:02}_{current_analysis_stage}')
     current_analysis_stage_outdir = os.path.abspath(current_analysis_stage_outdir)
