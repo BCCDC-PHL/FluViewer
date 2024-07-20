@@ -199,6 +199,7 @@ def main():
         current_analysis_stage_inputs,
         current_analysis_stage_outdir,
         args.output_name,
+        args.threads,
     )
     if assemble_contigs_analysis_summary['return_code'] != 0:
         log.error(f'Error in analysis stage: {current_analysis_stage}')
@@ -358,15 +359,25 @@ def main():
     }
 
     if args.skip_depth_normalization:
-        current_analysis_stage_inputs.update({
-            'reads_fwd': os.path.abspath(args.forward_reads),
-            'reads_rev': os.path.abspath(args.reverse_reads),
-        })
+        if args.forward_reads and args.reverse_reads:
+            current_analysis_stage_inputs.update({
+                'reads_fwd': os.path.abspath(args.forward_reads),
+                'reads_rev': os.path.abspath(args.reverse_reads),
+            })
+        elif args.long_reads:
+            current_analysis_stage_inputs.update({
+                'reads_long': os.path.abspath(args.long_reads),
+            })
     else:
-        current_analysis_stage_inputs.update({
-            'reads_fwd': normalize_depth_analysis_summary['outputs']['normalized_reads_fwd'],
-            'reads_rev': normalize_depth_analysis_summary['outputs']['normalized_reads_rev'],
-        })
+        if args.forward_reads and args.reverse_reads:
+            current_analysis_stage_inputs.update({
+                'reads_fwd': normalize_depth_analysis_summary['outputs']['normalized_reads_fwd'],
+                'reads_rev': normalize_depth_analysis_summary['outputs']['normalized_reads_rev'],
+            })
+        elif args.long_reads:
+            current_analysis_stage_inputs.update({
+                'reads_long': normalize_depth_analysis_summary['outputs']['normalized_reads_long'],
+            })
     
     log.info(f'Beginning analysis stage: {current_analysis_stage}')
 
@@ -375,6 +386,7 @@ def main():
         current_analysis_stage_outdir,
         args.output_name,
         args.min_mapping_quality,
+        args.threads,
     )
     if map_reads_analysis_summary['return_code'] != 0:
         log.error(f'Error in analysis stage: {current_analysis_stage}')
