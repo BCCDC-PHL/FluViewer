@@ -97,8 +97,6 @@ def normalize_depth(
         inputs: dict,
         outdir: Path,
         out_name: str,
-        fwd_reads_raw: Path,
-        rev_reads_raw: Path,
         depth: int,
         max_memory: int,
 ):
@@ -113,10 +111,6 @@ def normalize_depth(
     :type outdir: str
     :param out_name: Name of the output directory.
     :type out_name: str
-    :param fwd_reads_raw: Path to the raw forward reads.
-    :type fwd_reads_raw: str
-    :param rev_reads_raw: Path to the raw reverse reads.
-    :type rev_reads_raw: str
     :param depth: Target depth of coverage.
     :type depth: int
     :param max_memory: Maximum memory to allocate to BBNorm.
@@ -131,6 +125,8 @@ def normalize_depth(
 
     input_reads_fwd = inputs.get('input_reads_fwd', None)
     input_reads_rev = inputs.get('input_reads_rev', None)
+    input_reads_long = inputs.get('input_reads_long', None)
+
     analysis_summary = {
         'timestamp_analysis_start': timestamp_analysis_start,
         'inputs': inputs,
@@ -138,15 +134,23 @@ def normalize_depth(
     
     normalized_reads_fwd = os.path.join(outdir, f'{out_name}-normalized_R1.fastq')
     normalized_reads_rev = os.path.join(outdir, f'{out_name}-normalized_R2.fastq')
+    normalized_reads_long = os.path.join(outdir, f'{out_name}-normalized_RL.fastq')
 
-    terminal_command = (f'bbnorm.sh in={input_reads_fwd} in2={input_reads_rev} '
-                        f'out={normalized_reads_fwd} out2={normalized_reads_rev} target={depth}')
+    if input_reads_fwd and input_reads_rev:
+        terminal_command = (f'bbnorm.sh in={input_reads_fwd} in2={input_reads_rev} '
+                            f'out={normalized_reads_fwd} out2={normalized_reads_rev} target={depth}')
+    elif input_reads_long:
+        terminal_command = (f'bbnorm.sh in={input_reads_long} out={normalized_reads_long} target={depth}')
+        
     terminal_command = (terminal_command + f' -Xmx{max_memory}g'
                         if max_memory is not None else terminal_command)
 
     # add gzip compression to output files
-    terminal_command += f'\n\ngzip -f {normalized_reads_fwd}\n'
-    terminal_command += f'\ngzip -f {normalized_reads_rev}\n'
+    if input_reads_fwd and input_reads_rev:
+        terminal_command += f'\n\ngzip -f {normalized_reads_fwd}\n'
+        terminal_command += f'\ngzip -f {normalized_reads_rev}\n'
+    elif input_reads_long:
+        terminal_command += f'\n\ngzip -f {normalized_reads_long}\n'
 
     process_name = 'bbnorm'
     error_code = 2
@@ -179,10 +183,15 @@ def normalize_depth(
 
     timestamp_analysis_complete = datetime.datetime.now().isoformat()
 
-    outputs = {
-        'normalized_reads_fwd': os.path.abspath(normalized_reads_fwd) + '.gz',
-        'normalized_reads_rev': os.path.abspath(normalized_reads_rev) + '.gz',
-    }
+    if input_reads_fwd and input_reads_rev:
+        outputs = {
+            'normalized_reads_fwd': os.path.abspath(normalized_reads_fwd) + '.gz',
+            'normalized_reads_rev': os.path.abspath(normalized_reads_rev) + '.gz',
+        }
+    elif input_reads_long:
+        outputs = {
+            'normalized_reads_long': os.path.abspath(normalized_reads_long) + '.gz',
+        }
 
     analysis_summary = {
         'process_name': process_name,
@@ -204,6 +213,7 @@ def assemble_contigs(
         inputs: dict,
         outdir: Path,
         out_name: str,
+        threads: int,
 ):
     """
     Normalized, downsampled reads are assembled de novo into contigs
@@ -228,34 +238,67 @@ def assemble_contigs(
 
     logs_dir = os.path.join(outdir, 'logs')
     os.makedirs(logs_dir, exist_ok=True)
-    
-    spades_output = os.path.join(outdir, 'spades_output')
-    fwd_reads = inputs.get('reads_fwd', None)
-    rev_reads = inputs.get('reads_rev', None)
 
-    os.makedirs(spades_output, exist_ok=True)
+    if 'reads_fwd' in inputs and 'reads_rev' in inputs:
+        spades_output = os.path.join(outdir, 'spades_output')
+        fwd_reads = inputs.get('reads_fwd', None)
+        rev_reads = inputs.get('reads_rev', None)
 
-    terminal_command = (f'spades.py --rnaviral --isolate -1 {fwd_reads} '
-                        f'-2 {rev_reads} -o {spades_output}')
+        os.makedirs(spades_output, exist_ok=True)
 
-    process_name = 'spades'
-    error_code = 3
+        terminal_command = (f'spades.py --threads {threads} --rnaviral -1 {fwd_reads} '
+                            f'-2 {rev_reads} -o {spades_output}')
 
-    script_file = os.path.join(outdir, f'{process_name}_script.sh')
-    return_code = run(terminal_command, outdir, out_name, process_name, error_code)
-    analysis_summary['return_code'] = return_code
-    if not os.path.isfile(os.path.join(spades_output, 'contigs.fasta')):
-        log.error('No contigs assembled! Aborting analysis.')
-        error_code = 4
-        analysis_summary['return_code'] = error_code
-        analysis_summary['error_message'] = error_messages_by_code[error_code]
-        analysis_summary['inputs'] = inputs
-        return analysis_summary
+        process_name = 'spades'
+        error_code = 3
 
-    num_contigs = 0
-    src_contigs_path = os.path.join(spades_output, 'contigs.fasta')
-    dest_contigs_path = os.path.join(outdir, f'{out_name}_contigs.fasta')
-    shutil.copy(src_contigs_path, dest_contigs_path)
+        script_file = os.path.join(outdir, f'{process_name}_script.sh')
+        return_code = run(terminal_command, outdir, out_name, process_name, error_code)
+        analysis_summary['return_code'] = return_code
+        if not os.path.isfile(os.path.join(spades_output, 'contigs.fasta')):
+            log.error('No contigs assembled! Aborting analysis.')
+            error_code = 4
+            analysis_summary['return_code'] = error_code
+            analysis_summary['error_message'] = error_messages_by_code[error_code]
+            analysis_summary['inputs'] = inputs
+            return analysis_summary
+
+        num_contigs = 0
+        src_contigs_path = os.path.join(spades_output, 'contigs.fasta')
+        dest_contigs_path = os.path.join(outdir, f'{out_name}_contigs.fasta')
+        shutil.copy(src_contigs_path, dest_contigs_path)
+
+    elif 'reads_long' in inputs:
+        # Note: Trying out flye for long-read assembly.
+        #       May need to adjust approach later, just testing
+        #       this approach for now.
+
+        flye_output = os.path.join(outdir, 'flye_output')
+        long_reads = inputs.get('reads_long', None)
+
+        os.makedirs(flye_output, exist_ok=True)
+
+        terminal_command = (f'flye --threads {threads} --nano-raw {long_reads} --genome-size 13.5k --out-dir {flye_output}')
+
+        process_name = 'flye'
+        error_code = 3
+        script_file = os.path.join(outdir, f'{process_name}_script.sh')
+        return_code = run(terminal_command, outdir, out_name, process_name, error_code)
+        analysis_summary['return_code'] = return_code
+
+        if not os.path.isfile(os.path.join(flye_output, 'assembly.fasta')):
+            log.error('No contigs assembled! Aborting analysis.')
+            error_code = 4
+            analysis_summary['return_code'] = error_code
+            analysis_summary['error_message'] = error_messages_by_code[error_code]
+            analysis_summary['inputs'] = inputs
+            return analysis_summary
+
+        num_contigs = 0
+        src_contigs_path = os.path.join(flye_output, 'assembly.fasta')
+        dest_contigs_path = os.path.join(outdir, f'{out_name}_contigs.fasta')
+        shutil.copy(src_contigs_path, dest_contigs_path)
+        
     with open(dest_contigs_path, 'r') as f:
         for line in f:
             if line.startswith('>'):
@@ -1126,7 +1169,7 @@ def make_mapping_refs(inputs, outdir, out_name):
     return mapping_refs_path
 
 
-def map_reads(inputs, outdir, out_name, min_qual):
+def map_reads(inputs, outdir, out_name, min_qual, threads):
     """
     Reads  are mapped to the mapping references (produced by make_mapping_refs func) using BWA mem.
     The alignment is filtered to retain only paired reads, then sorted and indexed.
@@ -1152,64 +1195,103 @@ def map_reads(inputs, outdir, out_name, min_qual):
     
     mapping_refs_path = make_mapping_refs(inputs, outdir, out_name)
 
-    terminal_command = (f'bwa index {mapping_refs_path}')
-    process_name = 'bwa_index'
-    error_code = 14
-    return_code = run(terminal_command, outdir, out_name, process_name, error_code)
-    if return_code != 0:
-        log.error(f'Error running BWA index (Exit status: {return_code})')
-        analysis_summary['return_code'] = error_code
-        analysis_summary['error_message'] = error_messages_by_code[error_code]
-        return analysis_summary
+    if 'reads_fwd' in inputs and 'reads_rev' in inputs:
+        terminal_command = (f'bwa index {mapping_refs_path}')
+        process_name = 'bwa_index'
+        error_code = 14
+        return_code = run(terminal_command, outdir, out_name, process_name, error_code)
+        if return_code != 0:
+            log.error(f'Error running BWA index (Exit status: {return_code})')
+            analysis_summary['return_code'] = error_code
+            analysis_summary['error_message'] = error_messages_by_code[error_code]
+            return analysis_summary
 
-    fwd_reads = inputs.get('reads_fwd', None)
-    rev_reads = inputs.get('reads_rev', None)
-    alignment_path = os.path.join(outdir, f'{out_name}_alignment.sam')
-    terminal_command = (f'bwa mem {mapping_refs_path} {fwd_reads} {rev_reads} '
-                        f'> {alignment_path}')
-    process_name = 'bwa_mem'
-    error_code = 15
-    return_code = run(terminal_command, outdir, out_name, process_name, error_code)
-    if return_code != 0:
-        log.error(f'Error running BWA mem (Exit status: {return_code})')
-        analysis_summary['return_code'] = error_code
-        analysis_summary['error_message'] = error_messages_by_code[error_code]
-        return analysis_summary
+        fwd_reads = inputs.get('reads_fwd', None)
+        rev_reads = inputs.get('reads_rev', None)
+        alignment_path = os.path.join(outdir, f'{out_name}_alignment.sam')
+        terminal_command = (f'bwa mem -t {threads} {mapping_refs_path} {fwd_reads} {rev_reads} '
+                            f'> {alignment_path}')
+        process_name = 'bwa_mem'
+        error_code = 15
+        return_code = run(terminal_command, outdir, out_name, process_name, error_code)
+        if return_code != 0:
+            log.error(f'Error running BWA mem (Exit status: {return_code})')
+            analysis_summary['return_code'] = error_code
+            analysis_summary['error_message'] = error_messages_by_code[error_code]
+            return analysis_summary
 
-    filtered_alignment_path = os.path.join(outdir, f'{out_name}_alignment.bam')
+        filtered_alignment_path = os.path.join(outdir, f'{out_name}_alignment.bam')
     
-    samtools_require_flags = [
-        'PAIRED', # 0x1
-    ]
-    samtools_require_flags_str = ','.join(samtools_require_flags)
-    samtools_exclude_flags = [
-        'UNMAP',           # 0x4
-        'MUNMAP',          # 0x8
-        'SECONDARY',       # 0x100
-        'QCFAIL',          # 0x200
-        'SUPPLEMENTARY',   # 0x800
-    ]
-    samtools_exclude_flags_str = ','.join(samtools_exclude_flags)
+        samtools_require_flags = [
+            'PAIRED', # 0x1
+        ]
+        samtools_require_flags_str = ','.join(samtools_require_flags)
+        samtools_exclude_flags = [
+            'UNMAP',           # 0x4
+            'MUNMAP',          # 0x8
+            'SECONDARY',       # 0x100
+            'QCFAIL',          # 0x200
+            'SUPPLEMENTARY',   # 0x800
+        ]
+        samtools_exclude_flags_str = ','.join(samtools_exclude_flags)
 
-    log.info(f'Filtering alignment with sam require flags: {samtools_require_flags_str}.')
-    log.info(f'Filtering alignment with sam exclude flags: {samtools_exclude_flags_str}.')
-    log.info(f'See: http://www.htslib.org/doc/samtools-flags.html for info on sam flags.')
-    log.info('Removing unmapped reads, secondary alignments, and supplementary alignments.')
-    log.info(f'Applying minimum mapping quality: {min_qual}')
-    terminal_command = (f'samtools view '
-                        f'--require-flags {samtools_require_flags_str} '
-                        f'--exclude-flags {samtools_exclude_flags_str} '
-                        f'--min-MQ {min_qual} '
-                        f'--with-header {alignment_path} | samtools sort -o {filtered_alignment_path}')
-    process_name = 'samtools_view'
-    error_code = 16
-    return_code = run(terminal_command, outdir, out_name, process_name, error_code)
-    if return_code != 0:
-        log.error(f'Error running samtools view (Exit status: {return_code})')
-        analysis_summary['return_code'] = error_code
-        analysis_summary['error_message'] = error_messages_by_code[error_code]
-        return analysis_summary
+        log.info(f'Filtering alignment with sam require flags: {samtools_require_flags_str}.')
+        log.info(f'Filtering alignment with sam exclude flags: {samtools_exclude_flags_str}.')
+        log.info(f'See: http://www.htslib.org/doc/samtools-flags.html for info on sam flags.')
+        log.info('Removing unmapped reads, secondary alignments, and supplementary alignments.')
+        log.info(f'Applying minimum mapping quality: {min_qual}')
+        terminal_command = (f'samtools view '
+                            f'--require-flags {samtools_require_flags_str} '
+                            f'--exclude-flags {samtools_exclude_flags_str} '
+                            f'--min-MQ {min_qual} '
+                            f'--with-header {alignment_path} | samtools sort -o {filtered_alignment_path}')
+        process_name = 'samtools_view'
+        error_code = 16
+        return_code = run(terminal_command, outdir, out_name, process_name, error_code)
+        if return_code != 0:
+            log.error(f'Error running samtools view (Exit status: {return_code})')
+            analysis_summary['return_code'] = error_code
+            analysis_summary['error_message'] = error_messages_by_code[error_code]
+            return analysis_summary
 
+    elif 'reads_long' in inputs:
+        reads_long = inputs.get('reads_long', None)
+        alignment_path = os.path.join(outdir, f'{out_name}_alignment.sam')
+        terminal_command = (f'minimap2 -t {threads} -ax map-ont {mapping_refs_path} {reads_long} > {alignment_path}')
+        process_name = 'minimap2'
+        error_code = 15
+        return_code = run(terminal_command, outdir, out_name, process_name, error_code)
+        if return_code != 0:
+            log.error(f'Error running minimap2 (Exit status: {return_code})')
+            analysis_summary['return_code'] = error_code
+            analysis_summary['error_message'] = error_messages_by_code[error_code]
+            return analysis_summary
+
+        filtered_alignment_path = os.path.join(outdir, f'{out_name}_alignment.bam')
+        samtools_exclude_flags = [
+            'UNMAP',           # 0x4
+            'SECONDARY',       # 0x100
+            'QCFAIL',          # 0x200
+            'SUPPLEMENTARY',   # 0x800
+        ]
+        samtools_exclude_flags_str = ','.join(samtools_exclude_flags)
+        log.info(f'Filtering alignment with sam exclude flags: {samtools_exclude_flags_str}.')
+        log.info(f'See: http://www.htslib.org/doc/samtools-flags.html for info on sam flags.')
+        log.info('Removing unmapped reads, secondary alignments, and supplementary alignments.')
+        log.info(f'Applying minimum mapping quality: {min_qual}')
+        terminal_command = (f'samtools view '
+                            f'--exclude-flags {samtools_exclude_flags_str} '
+                            f'--min-MQ {min_qual} '
+                            f'--with-header {alignment_path} | samtools sort -o {filtered_alignment_path}')
+        process_name = 'samtools_view'
+        error_code = 16
+        return_code = run(terminal_command, outdir, out_name, process_name, error_code)
+        if return_code != 0:
+            log.error(f'Error running samtools view (Exit status: {return_code})')
+            analysis_summary['return_code'] = error_code
+            analysis_summary['error_message'] = error_messages_by_code[error_code]
+            return analysis_summary
+        
     log.info(f'Indexing alignment...')
     terminal_command = (f'samtools index {filtered_alignment_path}')
     process_name = 'samtools_index'
