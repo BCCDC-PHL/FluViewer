@@ -1274,6 +1274,11 @@ def map_reads(inputs, outdir, out_name, min_qual, threads):
             'QCFAIL',          # 0x200
             'SUPPLEMENTARY',   # 0x800
         ]
+        samtools_exclude_flags_str = ','.join(samtools_exclude_flags)
+        log.info(f'Filtering alignment with sam exclude flags: {samtools_exclude_flags_str}.')
+        log.info(f'See: http://www.htslib.org/doc/samtools-flags.html for info on sam flags.')
+        log.info('Removing unmapped reads, secondary alignments, and supplementary alignments.')
+        log.info(f'Applying minimum mapping quality: {min_qual}')
         terminal_command = (f'samtools view ',
                             f'--exclude-flags {samtools_exclude_flags_str} ',
                             f'--min-MQ {min_qual} ',
