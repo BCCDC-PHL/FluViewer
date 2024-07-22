@@ -1279,9 +1279,9 @@ def map_reads(inputs, outdir, out_name, min_qual, threads):
         log.info(f'See: http://www.htslib.org/doc/samtools-flags.html for info on sam flags.')
         log.info('Removing unmapped reads, secondary alignments, and supplementary alignments.')
         log.info(f'Applying minimum mapping quality: {min_qual}')
-        terminal_command = (f'samtools view ',
-                            f'--exclude-flags {samtools_exclude_flags_str} ',
-                            f'--min-MQ {min_qual} ',
+        terminal_command = (f'samtools view '
+                            f'--exclude-flags {samtools_exclude_flags_str} '
+                            f'--min-MQ {min_qual} '
                             f'--with-header {alignment_path} | samtools sort -o {filtered_alignment_path}')
         process_name = 'samtools_view'
         error_code = 16
