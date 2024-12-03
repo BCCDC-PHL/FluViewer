@@ -1347,6 +1347,17 @@ def mask_ambig_low_cov(
                 total_depth >= min_depth]):
             variants_filtered.write(line)
             variant_pos[segment].add(position)
+        
+        elif all([qual >= min_qual, max_vaf >= vaf_ambig, max_vaf <= vaf_call,
+                total_depth >= min_depth]):
+            entries = line.strip().split('\t')
+            format_cols = {field: idx for idx, field in enumerate(entries[8].split(':'))}
+            sample_values = entries[9].split(':')
+            sample_values[format_cols['GT']] = '0/1'
+            entries[9] = ":".join(sample_values)
+            variants_filtered.write("\t".join(entries) + "\n")
+            variant_pos[segment].add(position)
+        
         position -= 1
         for p in ref:
             position += 1
@@ -1380,7 +1391,7 @@ def mask_ambig_low_cov(
     # spans of masked positions (start, end).
     masked_pos = dict()
     for segment in 'PB2 PB1 PA HA NP NA M NS'.split(' '):
-        masked_pos[segment] = low_cov_pos[segment].union(ambig_pos[segment])
+        masked_pos[segment] = low_cov_pos[segment] #.union(ambig_pos[segment])
         masked_pos[segment] = sorted(masked_pos[segment])
     spans = {segment: set() for segment in segments}
     segments = [segment for segment in segments
@@ -1583,7 +1594,7 @@ def make_consensus_seqs(inputs, outdir, out_name):
     mapping_refs = inputs.get('mapping_refs', None)
     masked = inputs.get('masked_positions', None)
     consensus_seqs = os.path.join(outdir, f'{out_name}_consensus_seqs.fa')
-    terminal_command = (f'cat {mapping_refs} | bcftools consensus -m {masked} '
+    terminal_command = (f'cat {mapping_refs} | bcftools consensus -m {masked} -I '
                         f'{zipped_variants} > {consensus_seqs}')
     process_name = 'bcftools_consensus'
     error_code = 21
